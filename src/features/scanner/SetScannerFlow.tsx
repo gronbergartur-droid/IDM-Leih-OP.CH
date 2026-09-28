@@ -3,15 +3,20 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { dataProvider } from '@/services';
 import type { Physician } from '@/types/database';
-import { PackageCheck, Plus, Trash2 } from 'lucide-react';
+import JSZip from 'jszip';
+import { Download, FileText, PackageCheck, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CameraCapture } from './CameraCapture';
+import { readTextFromImage } from './recognition/ocrReader';
 import { ScannerFlow } from './ScannerFlow';
 
 const MIN_SIEBE = 2;
 const MAX_SIEBE = 10;
 const MAX_PHOTOS_PER_SIEB = 3;
+
+/** Case-insensitive substrings in a Lieferschein/document photo that flag possibly missing instruments. */
+const WARNING_KEYWORDS = ['fehlt', 'nicht verfügbar', 'nicht verfuegbar', 'achtung'];
 
 interface SetSieb {
   id: string;
@@ -19,7 +24,12 @@ interface SetSieb {
   photos: string[];
 }
 
-type AddTarget = { kind: 'new' } | { kind: 'existing'; siebIndex: number };
+interface SetDocument {
+  id: string;
+  photo: string;
+}
+
+type AddTarget = { kind: 'new' } | { kind: 'existing'; siebIndex: number } | { kind: 'document' };
 
 type SetStep = 'overview' | 'adding' | 'processing' | 'summary';
 
@@ -43,6 +53,10 @@ export function SetScannerFlow() {
   const [physicians, setPhysicians] = useState<Physician[]>([]);
   const [operateurId, setOperateurId] = useState<string | null>(null);
   const [operationDate, setOperationDate] = useState('');
+  const [documents, setDocuments] = useState<SetDocument[]>([]);
+  const [documentWarnings, setDocumentWarnings] = useState<string[] | null>(null);
+  const [zipping, setZipping] = useState(false);
+  const checkingDocuments = step === 'summary' && documents.length > 0 && documentWarnings === null;
 
   useEffect(() => {
     dataProvider.getPhysicians().then(setPhysicians);
@@ -62,11 +76,13 @@ export function SetScannerFlow() {
     if (!addTarget) return;
     if (addTarget.kind === 'new') {
       setSiebe((prev) => [...prev, { id: crypto.randomUUID(), photos: [dataUrl] }]);
-    } else {
+    } else if (addTarget.kind === 'existing') {
       const { siebIndex } = addTarget;
       setSiebe((prev) =>
         prev.map((sieb, index) => (index === siebIndex ? { ...sieb, photos: [...sieb.photos, dataUrl] } : sieb)),
       );
+    } else {
+      setDocuments((prev) => [...prev, { id: crypto.randomUUID(), photo: dataUrl }]);
     }
     setAddTarget(null);
     setStep('overview');
@@ -74,6 +90,10 @@ export function SetScannerFlow() {
 
   const handleRemoveSieb = (index: number) => {
     setSiebe((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveDocument = (id: string) => {
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 
   const handleRemovePhoto = (siebIndex: number, photoIndex: number) => {
@@ -97,12 +117,77 @@ export function SetScannerFlow() {
     }
   };
 
+  useEffect(() => {
+    if (step !== 'summary' || documents.length === 0 || documentWarnings !== null) return;
+    let cancelled = false;
+    (async () => {
+      const matches = new Set<string>();
+      for (const doc of documents) {
+        const { text } = await readTextFromImage(doc.photo);
+        const lower = text.toLowerCase();
+        for (const keyword of WARNING_KEYWORDS) {
+          if (lower.includes(keyword)) matches.add(keyword);
+        }
+      }
+      if (!cancelled) {
+        setDocumentWarnings([...matches]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, documents, documentWarnings]);
+
+  /**
+   * One ZIP per SET, not two separate downloads - Siebe and Dokumente are
+   * clearly separated by folder within that single package rather than
+   * mixed together or split across files.
+   */
+  const handleDownloadSetZip = async () => {
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+
+      for (const [siebIndex, sieb] of siebe.entries()) {
+        const folder = `Siebe/Sieb_${siebIndex + 1}`;
+        for (const [photoIndex, photo] of sieb.photos.entries()) {
+          const response = await fetch(photo);
+          const blob = await response.blob();
+          const extension = blob.type.includes('png') ? '.png' : '.jpg';
+          zip.file(`${folder}/${PHOTO_LABEL(photoIndex)}${extension}`, blob);
+        }
+      }
+
+      for (const [index, doc] of documents.entries()) {
+        const response = await fetch(doc.photo);
+        const blob = await response.blob();
+        const extension = blob.type.includes('png') ? '.png' : '.jpg';
+        zip.file(`Dokumente/Dokument_${index + 1}${extension}`, blob);
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Sieb-SET_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setZipping(false);
+    }
+  };
+
   if (step === 'adding') {
     const isNew = addTarget?.kind === 'new';
-    const title = isNew ? `Sieb ${siebe.length + 1} – Übersicht` : 'Weiteres Foto';
+    const isDocument = addTarget?.kind === 'document';
+    const title = isNew ? `Sieb ${siebe.length + 1} – Übersicht` : isDocument ? 'Dokument / Lieferschein' : 'Weiteres Foto';
     const subtitle = isNew
       ? 'Foto des ganzen Siebs'
-      : `Sieb ${addTarget && addTarget.kind === 'existing' ? addTarget.siebIndex + 1 : ''} – Detail/Barcode`;
+      : isDocument
+        ? 'Foto des Lieferscheins oder Begleitdokuments'
+        : `Sieb ${addTarget && addTarget.kind === 'existing' ? addTarget.siebIndex + 1 : ''} – Detail/Barcode`;
     return (
       <div>
         <TopBar
@@ -147,6 +232,40 @@ export function SetScannerFlow() {
           <p className="text-sm text-ink-500">
             {siebe.length} Siebe wurden einzeln kontrolliert, gespeichert und im Audit-Log protokolliert.
           </p>
+
+          {checkingDocuments && (
+            <p className="text-xs text-ink-400">Dokumente werden geprüft …</p>
+          )}
+
+          {documentWarnings && documentWarnings.length > 0 && (
+            <Button
+              variant="danger"
+              size="lg"
+              fullWidth
+              icon={<TriangleAlert size={18} />}
+              onClick={() =>
+                window.alert(
+                  `Im Lieferschein/Dokument wurde folgender Hinweis erkannt: "${documentWarnings.join('", "')}". Bitte Instrumente prüfen.`,
+                )
+              }
+            >
+              Achtung: Fehlende Instrumente laut Dokument
+            </Button>
+          )}
+
+          <Button
+            variant="secondary"
+            size="lg"
+            fullWidth
+            icon={<Download size={18} />}
+            disabled={zipping}
+            onClick={handleDownloadSetZip}
+          >
+            {zipping
+              ? 'Wird erstellt …'
+              : `SET als ZIP herunterladen (${siebe.length} Siebe${documents.length > 0 ? ` + ${documents.length} Dokumente` : ''})`}
+          </Button>
+
           <div className="mt-4 flex w-full flex-col gap-2">
             <Button size="lg" fullWidth onClick={() => navigate('/historie')}>
               Zur Sieb-Historie
@@ -160,6 +279,8 @@ export function SetScannerFlow() {
                 setCurrentIndex(0);
                 setOperateurId(null);
                 setOperationDate('');
+                setDocuments([]);
+                setDocumentWarnings(null);
                 setStep('overview');
               }}
             >
@@ -213,6 +334,38 @@ export function SetScannerFlow() {
               className="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             />
           </label>
+        </Card>
+
+        <Card className="mb-4 p-3.5">
+          <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-500">
+            <FileText size={13} /> Dokumente / Lieferschein
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {documents.map((doc) => (
+              <div key={doc.id} className="relative aspect-square overflow-hidden rounded-xl bg-ink-100">
+                <img src={doc.photo} alt="Dokument" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveDocument(doc.id)}
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white active:bg-black/80"
+                  aria-label="Dokument entfernen"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setAddTarget({ kind: 'document' });
+                setStep('adding');
+              }}
+              className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-ink-200 text-ink-400 active:bg-ink-50"
+            >
+              <Plus size={18} />
+              <span className="text-[10px] font-medium">Dokument</span>
+            </button>
+          </div>
         </Card>
 
         <div className="flex flex-col gap-3">
