@@ -145,6 +145,10 @@ export interface ScanRecord {
   extraInstruments: ExtraInstrumentEntry[];
   missingInstrumentIds: UUID[];
   notes: string | null;
+  /** OP-Datum, set when known at capture time (e.g. from a Sieb-SET's shared Angaben zur Operation). */
+  operationDate: ISODateString | null;
+  /** The operating surgeon/Belegarzt, if known at capture time. */
+  operateurId: UUID | null;
   performedBy: string;
   createdAt: ISODateString;
   confirmedAt: ISODateString | null;

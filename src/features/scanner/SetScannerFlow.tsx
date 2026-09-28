@@ -1,8 +1,10 @@
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { dataProvider } from '@/services';
+import type { Physician } from '@/types/database';
 import { PackageCheck, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CameraCapture } from './CameraCapture';
 import { ScannerFlow } from './ScannerFlow';
@@ -38,6 +40,23 @@ export function SetScannerFlow() {
   const [siebe, setSiebe] = useState<SetSieb[]>([]);
   const [addTarget, setAddTarget] = useState<AddTarget | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [physicians, setPhysicians] = useState<Physician[]>([]);
+  const [operateurId, setOperateurId] = useState<string | null>(null);
+  const [operationDate, setOperationDate] = useState('');
+
+  useEffect(() => {
+    dataProvider.getPhysicians().then(setPhysicians);
+  }, []);
+
+  const physiciansByDepartment = useMemo(() => {
+    const groups = new Map<string, Physician[]>();
+    for (const p of physicians) {
+      const list = groups.get(p.department) ?? [];
+      list.push(p);
+      groups.set(p.department, list);
+    }
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [physicians]);
 
   const handleCapture = (dataUrl: string) => {
     if (!addTarget) return;
@@ -110,6 +129,8 @@ export function SetScannerFlow() {
         initialImageDataUrls={siebe[currentIndex].photos}
         setProgress={{ index: currentIndex + 1, total: siebe.length }}
         onSetItemDone={handleSetItemDone}
+        presetOperateurId={operateurId}
+        presetOperationDate={operationDate || null}
       />
     );
   }
@@ -137,6 +158,8 @@ export function SetScannerFlow() {
               onClick={() => {
                 setSiebe([]);
                 setCurrentIndex(0);
+                setOperateurId(null);
+                setOperationDate('');
                 setStep('overview');
               }}
             >
@@ -158,6 +181,39 @@ export function SetScannerFlow() {
           Barcode optional) - danach wird jedes Sieb einzeln anhand all seiner Fotos erkannt, zugeordnet und
           kontrolliert.
         </p>
+
+        <Card className="mb-4 space-y-4 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Angaben zur Operation</p>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">Operateur</span>
+            <select
+              value={operateurId ?? ''}
+              onChange={(e) => setOperateurId(e.target.value || null)}
+              className="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            >
+              <option value="">– Nicht ausgewählt –</option>
+              {physiciansByDepartment.map(([department, list]) => (
+                <optgroup key={department} label={department}>
+                  {list.map((physician) => (
+                    <option key={physician.id} value={physician.id}>
+                      {physician.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">OP-Datum</span>
+            <input
+              type="date"
+              value={operationDate}
+              onChange={(e) => setOperationDate(e.target.value)}
+              className="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            />
+          </label>
+        </Card>
 
         <div className="flex flex-col gap-3">
           {siebe.map((sieb, siebIndex) => (

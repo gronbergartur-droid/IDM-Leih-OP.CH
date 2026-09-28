@@ -2,8 +2,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import type { ExtraInstrumentEntry, InstrumentCheckEntry, Physician, Supplier, Tray } from '@/types/database';
-import { CheckCircle2, CircleAlert, ShieldCheck } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Calendar, CheckCircle2, CircleAlert, ShieldCheck, Stethoscope } from 'lucide-react';
+import { useState } from 'react';
 
 interface CaseIntakeSummaryStepProps {
   tray: Tray;
@@ -11,12 +11,8 @@ interface CaseIntakeSummaryStepProps {
   checks: InstrumentCheckEntry[];
   extras: ExtraInstrumentEntry[];
   operationNote: string;
-  onOperationNoteChange: (value: string) => void;
   operationDate: string;
-  onOperationDateChange: (value: string) => void;
-  physicians: Physician[];
-  operateurId: string | null;
-  onOperateurIdChange: (value: string | null) => void;
+  operateur: Physician | null;
   onConfirmAndOpenCase: () => void;
   saving: boolean;
 }
@@ -27,26 +23,12 @@ export function CaseIntakeSummaryStep({
   checks,
   extras,
   operationNote,
-  onOperationNoteChange,
   operationDate,
-  onOperationDateChange,
-  physicians,
-  operateurId,
-  onOperateurIdChange,
+  operateur,
   onConfirmAndOpenCase,
   saving,
 }: CaseIntakeSummaryStepProps) {
   const [acknowledged, setAcknowledged] = useState(false);
-
-  const physiciansByDepartment = useMemo(() => {
-    const groups = new Map<string, Physician[]>();
-    for (const p of physicians) {
-      const list = groups.get(p.department) ?? [];
-      list.push(p);
-      groups.set(p.department, list);
-    }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [physicians]);
 
   const missing = checks.filter((c) => c.quantityConfirmed < c.quantityExpected);
   const detectedCount =
@@ -73,6 +55,25 @@ export function CaseIntakeSummaryStep({
           </div>
         </div>
       </Card>
+
+      {(operationNote || operationDate || operateur) && (
+        <Card className="mt-4 p-3.5 text-sm text-ink-600">
+          {(operationNote || operationDate) && (
+            <p className="flex items-center gap-1.5">
+              <Calendar size={13} className="shrink-0 text-ink-400" />
+              {operationNote}
+              {operationNote && operationDate && ' · '}
+              {operationDate}
+            </p>
+          )}
+          {operateur && (
+            <p className={operationNote || operationDate ? 'mt-1.5 flex items-center gap-1.5' : 'flex items-center gap-1.5'}>
+              <Stethoscope size={13} className="shrink-0 text-ink-400" />
+              {operateur.name}
+            </p>
+          )}
+        </Card>
+      )}
 
       {!hasDeviations && (
         <Card className="mt-4 flex items-center gap-2.5 border-success-100 bg-success-50 p-3.5">
@@ -114,49 +115,6 @@ export function CaseIntakeSummaryStep({
           </div>
         </div>
       )}
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-            Operation (Referenz)
-          </span>
-          <input
-            value={operationNote}
-            onChange={(e) => onOperationNoteChange(e.target.value)}
-            placeholder="z. B. Saal 3, Pat.-Nr. …"
-            className="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">OP-Datum</span>
-          <input
-            type="date"
-            value={operationDate}
-            onChange={(e) => onOperationDateChange(e.target.value)}
-            className="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-          />
-        </label>
-      </div>
-
-      <label className="mt-3 block">
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">Operateur</span>
-        <select
-          value={operateurId ?? ''}
-          onChange={(e) => onOperateurIdChange(e.target.value || null)}
-          className="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-        >
-          <option value="">– Nicht ausgewählt –</option>
-          {physiciansByDepartment.map(([department, list]) => (
-            <optgroup key={department} label={department}>
-              {list.map((physician) => (
-                <option key={physician.id} value={physician.id}>
-                  {physician.name}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
 
       <button
         type="button"
