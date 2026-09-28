@@ -50,9 +50,19 @@ interface ScannerFlowProps {
   setProgress?: { index: number; total: number };
   /** Called instead of resetting when the SET's current item is confirmed - SetScannerFlow advances to the next Sieb (or its own summary) by remounting this component with a new key. */
   onSetItemDone?: () => void;
+  /** Operateur/OP-Datum already collected for the whole SET (standalone mode only) - carried onto each Sieb's saved scan. */
+  presetOperateurId?: string | null;
+  presetOperationDate?: string | null;
 }
 
-export function ScannerFlow({ mode = { kind: 'standalone' }, initialImageDataUrls, setProgress, onSetItemDone }: ScannerFlowProps) {
+export function ScannerFlow({
+  mode = { kind: 'standalone' },
+  initialImageDataUrls,
+  setProgress,
+  onSetItemDone,
+  presetOperateurId,
+  presetOperationDate,
+}: ScannerFlowProps) {
   const navigate = useNavigate();
   const { performedBy } = useAuth();
   const [state, setState] = useState(createInitialScannerState);
@@ -62,8 +72,8 @@ export function ScannerFlow({ mode = { kind: 'standalone' }, initialImageDataUrl
   const [saving, setSaving] = useState(false);
   const [mismatchWarning, setMismatchWarning] = useState<string | null>(null);
   const [operationNote, setOperationNote] = useState('');
-  const [operationDate, setOperationDate] = useState('');
-  const [operateurId, setOperateurId] = useState<string | null>(null);
+  const [operationDate, setOperationDate] = useState(presetOperationDate ?? '');
+  const [operateurId, setOperateurId] = useState<string | null>(presetOperateurId ?? null);
   const [physicians, setPhysicians] = useState<Physician[]>([]);
   const [openedCaseId, setOpenedCaseId] = useState<string | null>(null);
   // Suppresses the capture-step UI only for the auto-fed photo(s) from
@@ -253,6 +263,8 @@ export function ScannerFlow({ mode = { kind: 'standalone' }, initialImageDataUrl
         extraInstruments: state.extraInstruments,
         missingInstrumentIds: computeMissingIds(state.checks),
         notes: state.notes || null,
+        operationDate: operationDate || null,
+        operateurId,
         performedBy,
         createdAt: new Date().toISOString(),
         confirmedAt: new Date().toISOString(),
@@ -278,7 +290,7 @@ export function ScannerFlow({ mode = { kind: 'standalone' }, initialImageDataUrl
     } finally {
       setSaving(false);
     }
-  }, [patch, state, performedBy]);
+  }, [patch, state, performedBy, operationDate, operateurId]);
 
   const handleConfirmIntakeAndOpenCase = useCallback(async () => {
     if (!state.tray) return;
@@ -300,6 +312,8 @@ export function ScannerFlow({ mode = { kind: 'standalone' }, initialImageDataUrl
         extraInstruments: state.extraInstruments,
         missingInstrumentIds: computeMissingIds(state.checks),
         notes: state.notes || null,
+        operationDate: operationDate || null,
+        operateurId,
         performedBy,
         createdAt: new Date().toISOString(),
         confirmedAt: new Date().toISOString(),
@@ -382,6 +396,8 @@ export function ScannerFlow({ mode = { kind: 'standalone' }, initialImageDataUrl
         extraInstruments: state.extraInstruments,
         missingInstrumentIds: computeMissingIds(state.checks),
         notes: state.notes || null,
+        operationDate: operationDate || null,
+        operateurId,
         performedBy,
         createdAt: new Date().toISOString(),
         confirmedAt: new Date().toISOString(),
@@ -420,7 +436,7 @@ export function ScannerFlow({ mode = { kind: 'standalone' }, initialImageDataUrl
     } finally {
       setSaving(false);
     }
-  }, [mode, patch, state, performedBy]);
+  }, [mode, patch, state, performedBy, operationDate, operateurId]);
 
   if (mode.kind === 'case-intake' && !caseDetailsConfirmed) {
     return (
