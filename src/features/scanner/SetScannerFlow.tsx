@@ -138,22 +138,38 @@ export function SetScannerFlow() {
     };
   }, [step, documents, documentWarnings]);
 
-  const handleDownloadDocumentsZip = async () => {
-    if (documents.length === 0) return;
+  /**
+   * One ZIP per SET, not two separate downloads - Siebe and Dokumente are
+   * clearly separated by folder within that single package rather than
+   * mixed together or split across files.
+   */
+  const handleDownloadSetZip = async () => {
     setZipping(true);
     try {
       const zip = new JSZip();
+
+      for (const [siebIndex, sieb] of siebe.entries()) {
+        const folder = `Siebe/Sieb_${siebIndex + 1}`;
+        for (const [photoIndex, photo] of sieb.photos.entries()) {
+          const response = await fetch(photo);
+          const blob = await response.blob();
+          const extension = blob.type.includes('png') ? '.png' : '.jpg';
+          zip.file(`${folder}/${PHOTO_LABEL(photoIndex)}${extension}`, blob);
+        }
+      }
+
       for (const [index, doc] of documents.entries()) {
         const response = await fetch(doc.photo);
         const blob = await response.blob();
         const extension = blob.type.includes('png') ? '.png' : '.jpg';
-        zip.file(`Dokument_${index + 1}${extension}`, blob);
+        zip.file(`Dokumente/Dokument_${index + 1}${extension}`, blob);
       }
+
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Sieb-SET_Dokumente_${new Date().toISOString().slice(0, 10)}.zip`;
+      link.download = `Sieb-SET_${new Date().toISOString().slice(0, 10)}.zip`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -237,18 +253,18 @@ export function SetScannerFlow() {
             </Button>
           )}
 
-          {documents.length > 0 && (
-            <Button
-              variant="secondary"
-              size="lg"
-              fullWidth
-              icon={<Download size={18} />}
-              disabled={zipping}
-              onClick={handleDownloadDocumentsZip}
-            >
-              {zipping ? 'Wird erstellt …' : `Dokumente als ZIP herunterladen (${documents.length})`}
-            </Button>
-          )}
+          <Button
+            variant="secondary"
+            size="lg"
+            fullWidth
+            icon={<Download size={18} />}
+            disabled={zipping}
+            onClick={handleDownloadSetZip}
+          >
+            {zipping
+              ? 'Wird erstellt …'
+              : `SET als ZIP herunterladen (${siebe.length} Siebe${documents.length > 0 ? ` + ${documents.length} Dokumente` : ''})`}
+          </Button>
 
           <div className="mt-4 flex w-full flex-col gap-2">
             <Button size="lg" fullWidth onClick={() => navigate('/historie')}>
