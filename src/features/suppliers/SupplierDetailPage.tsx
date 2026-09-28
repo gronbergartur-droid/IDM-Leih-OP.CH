@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { dataProvider } from '@/services';
-import type { LoanCase, Supplier, Tray } from '@/types/database';
+import type { LoanCase, Physician, Supplier, Tray } from '@/types/database';
 import {
   BadgeCheck,
+  Calendar,
   ClipboardList,
   Mail,
   MapPin,
@@ -14,6 +15,7 @@ import {
   Phone,
   PlusCircle,
   Power,
+  Stethoscope,
   Trash2,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -26,18 +28,21 @@ export function SupplierDetailPage() {
   const [supplier, setSupplier] = useState<Supplier | null | undefined>(undefined);
   const [trays, setTrays] = useState<Tray[]>([]);
   const [cases, setCases] = useState<LoanCase[]>([]);
+  const [physicians, setPhysicians] = useState<Physician[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!supplierId) return;
-    const [s, allTrays, supplierCases] = await Promise.all([
+    const [s, allTrays, supplierCases, allPhysicians] = await Promise.all([
       dataProvider.getSupplier(supplierId),
       dataProvider.getTrays(),
       dataProvider.getCasesBySupplier(supplierId),
+      dataProvider.getPhysicians(),
     ]);
     setSupplier(s);
     setTrays(allTrays.filter((t) => t.supplierId === supplierId));
     setCases(supplierCases);
+    setPhysicians(allPhysicians);
   }, [supplierId]);
 
   useEffect(() => {
@@ -191,6 +196,7 @@ export function SupplierDetailPage() {
         <div className="space-y-2">
           {cases.map((c) => {
             const tray = trays.find((t) => t.id === c.trayId);
+            const operateur = physicians.find((p) => p.id === c.operateurId);
             return (
               <Link key={c.id} to={`/faelle/${c.id}`} className="block">
                 <Card className="p-3 active:bg-ink-50">
@@ -204,6 +210,22 @@ export function SupplierDetailPage() {
                     {formatDate(c.createdAt)}
                     {c.operationNote && ` · ${c.operationNote}`}
                   </p>
+                  {(c.operationDate || operateur) && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
+                      {c.operationDate && (
+                        <span className="flex items-center gap-1">
+                          <Calendar size={12} className="shrink-0 text-ink-400" />
+                          {c.operationDate}
+                        </span>
+                      )}
+                      {operateur && (
+                        <span className="flex items-center gap-1">
+                          <Stethoscope size={12} className="shrink-0 text-ink-400" />
+                          {operateur.name}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </Card>
               </Link>
             );
