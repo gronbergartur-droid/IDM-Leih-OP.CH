@@ -12,7 +12,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # jsdom/vitest/undici require >=22.22.2 - Node 20 (used by
+          # deploy-pages.yml, which doesn't need jsdom) is too old here.
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run lint
