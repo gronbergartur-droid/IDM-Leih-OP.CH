@@ -244,10 +244,27 @@ npm install
 npm run dev      # Dev-Server
 npm run build    # Typecheck + Produktions-Build
 npm run lint
+npm run test     # Vitest - Regressionstests für Kernlogik (siehe unten)
 ```
 
 Die Kamera-/OCR-Funktionen benötigen HTTPS oder `localhost`, da Browser den
 Zugriff auf `getUserMedia` sonst blockieren.
+
+### Tests
+
+Vitest deckt die Kernlogik ab, die Scanner/SET/Fälle/Audit tragen - ohne
+Kamera/OCR/Barcode zu mocken, da das kaum Mehrwert böte:
+
+- `src/features/cases/comparison.test.ts` - der Vorher/Nachher-Vergleichsmotor
+- `src/features/scanner/recognition/identifierPatterns.test.ts`,
+  `gs1.test.ts` - Sieb-Code- und GS1/UDI-Erkennung aus OCR-/Barcode-Text
+- `src/features/scanner/scannerTypes.test.ts` - Identifier-Normalisierung
+- `src/services/localProvider.test.ts` - kompletter Eingang → Ausgang →
+  Abweichung → Audit-Log-Ablauf über `LocalDataProvider`
+
+`.github/workflows/ci.yml` führt Lint, Typecheck, Tests und Build bei jedem
+Pull Request und Push auf `main` aus (zuvor gab es keine automatische
+Prüfung auf Pull Requests).
 
 ## Deployment (GitHub Pages)
 
