@@ -13,6 +13,15 @@ dem Speichern. Beim Eingang eines Leihsiebs wird daraus ein **Sieb-Fall**
 eröffnet; nach der Operation wird ein zweiter (Ausgangs-)Scan erfasst und
 automatisch mit dem Eingang verglichen (Modul „Vorher/Nachher-Vergleich“).
 
+## Roadmap: IDM Intelligence & IDM Analytics (v2.2, noch nicht implementiert)
+
+Geplante Erweiterung um zwei zusätzliche Module — **IDM Intelligence**
+(assistive KI-Fotoanalyse für Reparaturen/Instrumente, immer mit
+Pflichtbestätigung durch Menschen) und **IDM Analytics** (read-only
+KPI-Dashboard) — siehe [`docs/roadmap/v2.2/`](docs/roadmap/v2.2/README.md),
+insbesondere `MASTER-PROMPT-v2.2.md` für die vollständige Spezifikation.
+Noch nicht umgesetzt; bestehende Funktionalität bleibt dabei unverändert.
+
 ## KI-Nutzung: nur unterstützend
 
 Barcode-, QR- und Texterkennung sind **rein unterstützende** Funktionen:
