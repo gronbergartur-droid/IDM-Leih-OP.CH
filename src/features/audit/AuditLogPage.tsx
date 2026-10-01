@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   ShieldX,
   SlidersHorizontal,
+  Sparkles,
   Stethoscope,
   Trash2,
   Truck,
@@ -43,6 +44,8 @@ const ACTION_META: Record<AuditAction, { label: string; icon: typeof ShieldCheck
   physician_created: { label: 'Arzt angelegt', icon: Stethoscope, tone: 'text-brand-600 bg-brand-50' },
   repair_reported: { label: 'Reparatur gemeldet', icon: Wrench, tone: 'text-warning-600 bg-warning-50' },
   repair_closed: { label: 'Reparatur abgeschlossen', icon: Wrench, tone: 'text-success-600 bg-success-50' },
+  repair_ai_analyzed: { label: 'KI-Analyse (Reparatur)', icon: Sparkles, tone: 'text-brand-600 bg-brand-50' },
+  repair_ai_confirmed: { label: 'KI-Vorschlag bestätigt', icon: Sparkles, tone: 'text-success-600 bg-success-50' },
 };
 
 export function AuditLogPage() {
