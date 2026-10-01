@@ -6,6 +6,8 @@ import type {
   LoanCase,
   Physician,
   PhysicianInput,
+  RepairCase,
+  RepairCaseInput,
   ScanRecord,
   Supplier,
   SupplierInput,
@@ -26,6 +28,7 @@ const PHYSICIANS_KEY = 'idm-mobile.physicians.v1';
 const TRAYS_KEY = 'idm-mobile.trays.v1';
 const TRAY_INSTRUMENTS_KEY = 'idm-mobile.tray-instruments.v1';
 const CASES_KEY = 'idm-mobile.cases.v1';
+const REPAIR_CASES_KEY = 'idm-mobile.repair-cases.v1';
 
 function readFromStorage<T>(key: string, fallback: T[]): T[] {
   if (typeof window === 'undefined') return fallback;
@@ -69,6 +72,7 @@ export class LocalDataProvider implements DataProvider {
     trayInstruments,
   );
   private cases: LoanCase[] = readFromStorage<LoanCase>(CASES_KEY, []);
+  private repairCases: RepairCase[] = readFromStorage<RepairCase>(REPAIR_CASES_KEY, []);
 
   // ---------------------------------------------------------------------
   // Suppliers
@@ -350,6 +354,48 @@ export class LocalDataProvider implements DataProvider {
     };
     this.cases = this.cases.map((c) => (c.id === caseId ? updated : c));
     writeToStorage(CASES_KEY, this.cases);
+    return updated;
+  }
+
+  // ---------------------------------------------------------------------
+  // Reparatur (v2.2 Phase 2 - Repair Photo Foundation)
+  // ---------------------------------------------------------------------
+
+  async createRepairCase(input: RepairCaseInput): Promise<RepairCase> {
+    const repairCase: RepairCase = {
+      id: crypto.randomUUID(),
+      trayId: input.trayId,
+      supplierId: input.supplierId,
+      instrumentName: input.instrumentName,
+      overviewPhotoUrl: input.overviewPhotoUrl,
+      defectPhotoUrl: input.defectPhotoUrl,
+      refPhotoUrl: input.refPhotoUrl,
+      defectNote: input.defectNote,
+      status: 'open',
+      performedBy: input.performedBy,
+      closedBy: null,
+      createdAt: new Date().toISOString(),
+      closedAt: null,
+    };
+    this.repairCases = [repairCase, ...this.repairCases];
+    writeToStorage(REPAIR_CASES_KEY, this.repairCases);
+    return repairCase;
+  }
+
+  async getRepairCases(): Promise<RepairCase[]> {
+    return [...this.repairCases].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }
+
+  async getRepairCase(id: string): Promise<RepairCase | null> {
+    return this.repairCases.find((r) => r.id === id) ?? null;
+  }
+
+  async closeRepairCase(id: string, closedBy: string): Promise<RepairCase> {
+    const existing = this.repairCases.find((r) => r.id === id);
+    if (!existing) throw new Error('Reparatur nicht gefunden.');
+    const updated: RepairCase = { ...existing, status: 'closed', closedBy, closedAt: new Date().toISOString() };
+    this.repairCases = this.repairCases.map((r) => (r.id === id ? updated : r));
+    writeToStorage(REPAIR_CASES_KEY, this.repairCases);
     return updated;
   }
 

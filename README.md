@@ -177,6 +177,13 @@ ein echtes Supabase-Projekt angepasst werden muss.
   Sieb abholbereit ist. Versand läuft über die Edge Function
   `supabase/functions/send-sieb-ready-email` (Resend) – siehe
   „Sieb-Bereitschaft per E-Mail“ unten für die Einrichtung.
+- **Reparaturen** (`/reparaturen`, v2.2 Phase 2 – Repair Photo Foundation) –
+  defekte/beschädigte Instrumente melden: Foto Gesamtansicht (Pflicht),
+  Defekt- und REF/Artikel-Nahaufnahme (optional), Fehlerbeschreibung,
+  optionale Sieb-Zuordnung. Rein Foto-Ablage + UI, noch keine KI-Erkennung –
+  das ist für Phase 3 (IDM Intelligence/Cloud Agent, siehe
+  `docs/roadmap/v2.2/`) vorgesehen. Offene Reparaturen lassen sich als
+  abgeschlossen markieren; jede Meldung/Abschluss wird im Audit-Log erfasst.
 - **Sieb-Historie** (`/historie`) – jeder einzelne Scan (auch Eingangs-/
   Ausgangs-Scans eines Falls) bleibt hier zusätzlich einsehbar.
 - **Audit-Log** (`/audit`) – jede Lieferanten-, Sieb- und Fall-Aktion sowie

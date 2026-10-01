@@ -11,6 +11,7 @@ import {
   Sparkles,
   Stethoscope,
   Truck,
+  Wrench,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -46,6 +47,12 @@ const modules = [
     title: 'Ärzteliste',
     description: 'Belegärzte/Operateure nach Fachbereich',
   },
+  {
+    to: '/reparaturen',
+    icon: Wrench,
+    title: 'Reparaturen',
+    description: 'Defekte Instrumente melden und nachverfolgen',
+  },
 ];
 
 interface Stats {
@@ -53,20 +60,24 @@ interface Stats {
   activeSuppliers: number;
   comparedCases: number;
   casesWithDeviations: number;
+  openRepairs: number;
 }
 
 export function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
-    Promise.all([dataProvider.getCases(), dataProvider.getSuppliers()]).then(([cases, suppliers]) => {
-      setStats({
-        openCases: cases.filter((c) => c.status === 'outtake_pending').length,
-        activeSuppliers: suppliers.filter((s) => s.active).length,
-        comparedCases: cases.filter((c) => c.status === 'compared').length,
-        casesWithDeviations: cases.filter((c) => c.comparison?.hasDeviations).length,
-      });
-    });
+    Promise.all([dataProvider.getCases(), dataProvider.getSuppliers(), dataProvider.getRepairCases()]).then(
+      ([cases, suppliers, repairs]) => {
+        setStats({
+          openCases: cases.filter((c) => c.status === 'outtake_pending').length,
+          activeSuppliers: suppliers.filter((s) => s.active).length,
+          comparedCases: cases.filter((c) => c.status === 'compared').length,
+          casesWithDeviations: cases.filter((c) => c.comparison?.hasDeviations).length,
+          openRepairs: repairs.filter((r) => r.status === 'open').length,
+        });
+      },
+    );
   }, []);
 
   return (
@@ -130,6 +141,14 @@ export function DashboardPage() {
             label="Fälle mit Abweichung"
             value={stats?.casesWithDeviations}
             tone={stats && stats.casesWithDeviations > 0 ? 'warning' : 'neutral'}
+          />
+        </Link>
+        <Link to="/reparaturen">
+          <StatCard
+            icon={Wrench}
+            label="Offene Reparaturen"
+            value={stats?.openRepairs}
+            tone={stats && stats.openRepairs > 0 ? 'warning' : 'neutral'}
           />
         </Link>
       </div>

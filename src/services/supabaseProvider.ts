@@ -5,6 +5,8 @@ import type {
   LoanCase,
   Physician,
   PhysicianInput,
+  RepairCase,
+  RepairCaseInput,
   ScanRecord,
   Supplier,
   SupplierInput,
@@ -340,6 +342,55 @@ export class SupabaseDataProvider implements DataProvider {
   }
 
   // ---------------------------------------------------------------------
+  // Reparatur (v2.2 Phase 2 - Repair Photo Foundation)
+  // ---------------------------------------------------------------------
+
+  async createRepairCase(input: RepairCaseInput): Promise<RepairCase> {
+    const { data, error } = await this.client
+      .from('repair_cases')
+      .insert({
+        tray_id: input.trayId,
+        supplier_id: input.supplierId,
+        instrument_name: input.instrumentName,
+        overview_photo_url: input.overviewPhotoUrl,
+        defect_photo_url: input.defectPhotoUrl,
+        ref_photo_url: input.refPhotoUrl,
+        defect_note: input.defectNote,
+        performed_by: input.performedBy,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapRepairCaseRow(data);
+  }
+
+  async getRepairCases(): Promise<RepairCase[]> {
+    const { data, error } = await this.client
+      .from('repair_cases')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(mapRepairCaseRow);
+  }
+
+  async getRepairCase(id: string): Promise<RepairCase | null> {
+    const { data, error } = await this.client.from('repair_cases').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data ? mapRepairCaseRow(data) : null;
+  }
+
+  async closeRepairCase(id: string, closedBy: string): Promise<RepairCase> {
+    const { data, error } = await this.client
+      .from('repair_cases')
+      .update({ status: 'closed', closed_by: closedBy, closed_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapRepairCaseRow(data);
+  }
+
+  // ---------------------------------------------------------------------
   // Users / roles
   // ---------------------------------------------------------------------
 
@@ -585,5 +636,23 @@ function mapCaseRow(row: any): LoanCase {
     readinessNotifiedAt: row.readiness_notified_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapRepairCaseRow(row: any): RepairCase {
+  return {
+    id: row.id,
+    trayId: row.tray_id,
+    supplierId: row.supplier_id,
+    instrumentName: row.instrument_name,
+    overviewPhotoUrl: row.overview_photo_url,
+    defectPhotoUrl: row.defect_photo_url,
+    refPhotoUrl: row.ref_photo_url,
+    defectNote: row.defect_note,
+    status: row.status,
+    performedBy: row.performed_by,
+    closedBy: row.closed_by,
+    createdAt: row.created_at,
+    closedAt: row.closed_at,
   };
 }
