@@ -43,14 +43,28 @@ Antworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt, ohne Markdown, ohne Erk
   "basis": string[]
 }`;
 
+// The browser sends a CORS preflight (OPTIONS) before the actual POST for
+// any cross-origin request carrying an Authorization header - which every
+// call here does. Without handling it and echoing these headers on every
+// response (success and error alike), the preflight itself gets rejected
+// and the browser never even sends the real request, surfacing to the
+// Supabase JS client as an opaque "Failed to send a request to the Edge
+// Function" with no further detail.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function jsonError(message: string, status: number): Response {
   return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return jsonError("Method not allowed.", 405);
   if (!ANTHROPIC_API_KEY) return jsonError("ANTHROPIC_API_KEY ist nicht konfiguriert.", 500);
 
@@ -130,5 +144,8 @@ Deno.serve(async (req) => {
     basis: Array.isArray(parsed.basis) ? parsed.basis.filter((b: unknown) => typeof b === "string") : [],
   };
 
-  return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(result), {
+    status: 200,
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+  });
 });
