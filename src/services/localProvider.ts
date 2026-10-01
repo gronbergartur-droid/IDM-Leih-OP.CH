@@ -1,6 +1,8 @@
 import { physicians, suppliers, trayInstruments, trays } from '@/data/referenceData';
 import { getCurrentUser, setCurrentUser } from '@/lib/currentUser';
+import { resolveAiConfirmation } from '@/features/repair/resolveAiConfirmation';
 import type {
+  AiConfirmationAction,
   AuditLogEntry,
   CaseComparison,
   LoanCase,
@@ -367,6 +369,7 @@ export class LocalDataProvider implements DataProvider {
       trayId: input.trayId,
       supplierId: input.supplierId,
       instrumentName: input.instrumentName,
+      refNumber: null,
       overviewPhotoUrl: input.overviewPhotoUrl,
       defectPhotoUrl: input.defectPhotoUrl,
       refPhotoUrl: input.refPhotoUrl,
@@ -376,6 +379,10 @@ export class LocalDataProvider implements DataProvider {
       closedBy: null,
       createdAt: new Date().toISOString(),
       closedAt: null,
+      aiSuggestion: null,
+      aiConfirmation: null,
+      confirmedBy: null,
+      confirmedAt: null,
     };
     this.repairCases = [repairCase, ...this.repairCases];
     writeToStorage(REPAIR_CASES_KEY, this.repairCases);
@@ -394,6 +401,34 @@ export class LocalDataProvider implements DataProvider {
     const existing = this.repairCases.find((r) => r.id === id);
     if (!existing) throw new Error('Reparatur nicht gefunden.');
     const updated: RepairCase = { ...existing, status: 'closed', closedBy, closedAt: new Date().toISOString() };
+    this.repairCases = this.repairCases.map((r) => (r.id === id ? updated : r));
+    writeToStorage(REPAIR_CASES_KEY, this.repairCases);
+    return updated;
+  }
+
+  async analyzeRepairCase(_id: string): Promise<RepairCase> {
+    // No server/model to call in local/demo mode - never pretend a Cloud
+    // Agent result exists without a real backend (see docs/roadmap/v2.2).
+    throw new Error('KI-Analyse ist nur mit verbundenem Supabase-Projekt verfügbar.');
+  }
+
+  async confirmRepairAiSuggestion(
+    id: string,
+    action: AiConfirmationAction,
+    override: { instrumentName?: string; refNumber?: string } | null,
+    confirmedBy: string,
+  ): Promise<RepairCase> {
+    const existing = this.repairCases.find((r) => r.id === id);
+    if (!existing) throw new Error('Reparatur nicht gefunden.');
+    const resolved = resolveAiConfirmation(existing, existing.aiSuggestion, action, override);
+    const updated: RepairCase = {
+      ...existing,
+      instrumentName: resolved.instrumentName,
+      refNumber: resolved.refNumber,
+      aiConfirmation: action,
+      confirmedBy,
+      confirmedAt: new Date().toISOString(),
+    };
     this.repairCases = this.repairCases.map((r) => (r.id === id ? updated : r));
     writeToStorage(REPAIR_CASES_KEY, this.repairCases);
     return updated;

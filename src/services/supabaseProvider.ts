@@ -1,5 +1,7 @@
+import { resolveAiConfirmation } from '@/features/repair/resolveAiConfirmation';
 import { supabase } from '@/lib/supabase/client';
 import type {
+  AiConfirmationAction,
   AuditLogEntry,
   CaseComparison,
   LoanCase,
@@ -390,6 +392,43 @@ export class SupabaseDataProvider implements DataProvider {
     return mapRepairCaseRow(data);
   }
 
+  async analyzeRepairCase(id: string): Promise<RepairCase> {
+    const { data, error } = await this.client.functions.invoke('analyze-repair-photo', {
+      body: { repairCaseId: id },
+    });
+    if (error) {
+      // Edge Function errors carry the JSON body (incl. our German message) on error.context.
+      const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(detail?.error ?? error.message);
+    }
+    return mapRepairCaseRow(data);
+  }
+
+  async confirmRepairAiSuggestion(
+    id: string,
+    action: AiConfirmationAction,
+    override: { instrumentName?: string; refNumber?: string } | null,
+    confirmedBy: string,
+  ): Promise<RepairCase> {
+    const existing = await this.getRepairCase(id);
+    if (!existing) throw new Error('Reparatur nicht gefunden.');
+    const resolved = resolveAiConfirmation(existing, existing.aiSuggestion, action, override ?? null);
+    const { data, error } = await this.client
+      .from('repair_cases')
+      .update({
+        instrument_name: resolved.instrumentName,
+        ref_number: resolved.refNumber,
+        ai_confirmation: action,
+        confirmed_by: confirmedBy,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapRepairCaseRow(data);
+  }
+
   // ---------------------------------------------------------------------
   // Users / roles
   // ---------------------------------------------------------------------
@@ -645,6 +684,7 @@ function mapRepairCaseRow(row: any): RepairCase {
     trayId: row.tray_id,
     supplierId: row.supplier_id,
     instrumentName: row.instrument_name,
+    refNumber: row.ref_number,
     overviewPhotoUrl: row.overview_photo_url,
     defectPhotoUrl: row.defect_photo_url,
     refPhotoUrl: row.ref_photo_url,
@@ -654,5 +694,11 @@ function mapRepairCaseRow(row: any): RepairCase {
     closedBy: row.closed_by,
     createdAt: row.created_at,
     closedAt: row.closed_at,
+    // Stored as a single jsonb column with the same camelCase shape as
+    // RepairAiSuggestion (same convention as loan_cases.comparison).
+    aiSuggestion: row.ai_suggestion,
+    aiConfirmation: row.ai_confirmation,
+    confirmedBy: row.confirmed_by,
+    confirmedAt: row.confirmed_at,
   };
 }

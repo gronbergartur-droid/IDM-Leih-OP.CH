@@ -177,13 +177,16 @@ ein echtes Supabase-Projekt angepasst werden muss.
   Sieb abholbereit ist. Versand läuft über die Edge Function
   `supabase/functions/send-sieb-ready-email` (Resend) – siehe
   „Sieb-Bereitschaft per E-Mail“ unten für die Einrichtung.
-- **Reparaturen** (`/reparaturen`, v2.2 Phase 2 – Repair Photo Foundation) –
-  defekte/beschädigte Instrumente melden: Foto Gesamtansicht (Pflicht),
-  Defekt- und REF/Artikel-Nahaufnahme (optional), Fehlerbeschreibung,
-  optionale Sieb-Zuordnung. Rein Foto-Ablage + UI, noch keine KI-Erkennung –
-  das ist für Phase 3 (IDM Intelligence/Cloud Agent, siehe
-  `docs/roadmap/v2.2/`) vorgesehen. Offene Reparaturen lassen sich als
-  abgeschlossen markieren; jede Meldung/Abschluss wird im Audit-Log erfasst.
+- **Reparaturen** (`/reparaturen`, v2.2 Phase 2 + 3 – siehe
+  `docs/roadmap/v2.2/`) – defekte/beschädigte Instrumente melden: Foto
+  Gesamtansicht (Pflicht), Defekt- und REF/Artikel-Nahaufnahme (optional),
+  Fehlerbeschreibung, optionale Sieb-Zuordnung. Optional kann eine
+  **KI-Analyse** der Fotos gestartet werden (Cloud Agent, siehe „KI-Fotoanalyse
+  für Reparaturen" unten) – liefert einen Instrument-/REF-Vorschlag,
+  Defekt-Kandidaten und Confidence; muss von einer Person explizit
+  übernommen, korrigiert oder abgelehnt werden, bevor er als bestätigter
+  Wert gilt. Offene Reparaturen lassen sich als abgeschlossen markieren;
+  jede Meldung/Analyse/Bestätigung/Abschluss wird im Audit-Log erfasst.
 - **Sieb-Historie** (`/historie`) – jeder einzelne Scan (auch Eingangs-/
   Ausgangs-Scans eines Falls) bleibt hier zusätzlich einsehbar.
 - **Audit-Log** (`/audit`) – jede Lieferanten-, Sieb- und Fall-Aktion sowie
@@ -354,6 +357,40 @@ Einrichtung (einmalig):
 Ohne gesetzten `RESEND_API_KEY` liefert die Funktion einen klaren Fehler
 zurück, statt fehlzuschlagen; die App zeigt diesen direkt auf der
 Hygiene-Pass-Seite an.
+
+## KI-Fotoanalyse für Reparaturen (v2.2 Phase 3 – IDM Intelligence Pilot, Claude)
+
+Auf einer gemeldeten Reparatur (`/reparaturen/:id`) kann eine KI-Analyse der
+Fotos gestartet werden (`supabase/functions/analyze-repair-photo`, ruft die
+Claude API von Anthropic mit Vision auf). Das Ergebnis ist **immer nur ein
+Vorschlag**: Instrument-Kandidat, REF/Artikelnummer (falls lesbar),
+sichtbare Defekt-Kandidaten aus einer festen, vorsichtig formulierten Liste,
+Confidence und Begründung. Die KI bewertet nie, ob ein Instrument sicher
+oder einsatzfähig ist – das entscheidet ausschliesslich das Fachpersonal.
+Das Personal muss den Vorschlag explizit **übernehmen, korrigieren, als
+anderes Instrument erfassen oder ablehnen**; der ursprüngliche KI-Vorschlag
+bleibt dabei unverändert gespeichert (nie überschrieben), zusätzlich zum
+final bestätigten Wert samt Person und Zeitpunkt. Jede Analyse und jede
+Bestätigung wird im Audit-Log protokolliert. Wie beim E-Mail-Versand läuft
+die Funktion mit dem JWT der anmeldenden Person, nicht mit dem
+Service-Role-Key.
+
+Einrichtung (einmalig):
+
+1. Einen API-Key unter [console.anthropic.com](https://console.anthropic.com)
+   erstellen.
+2. Im Supabase-Dashboard unter **Edge Functions → analyze-repair-photo →
+   Secrets** (oder projektweit unter **Project Settings → Edge Functions →
+   Secrets**) die Variable `ANTHROPIC_API_KEY` mit diesem Key anlegen.
+3. Optional: `ANTHROPIC_MODEL` setzen, um ein anderes Modell als die
+   Standardeinstellung (Claude Sonnet 5) zu verwenden.
+
+Ohne gesetzten `ANTHROPIC_API_KEY` liefert die Funktion einen klaren Fehler
+zurück, statt fehlzuschlagen oder ein Ergebnis vorzutäuschen; die App zeigt
+diesen direkt auf der Reparatur-Detailseite an. Im lokalen Mock-Modus (ohne
+Supabase) ist die KI-Analyse grundsätzlich nicht verfügbar – die App
+behauptet nie, dass eine Cloud-Analyse stattgefunden hat, ohne echtes
+Backend.
 
 ## OCR offline betreiben
 

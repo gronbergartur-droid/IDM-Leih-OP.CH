@@ -1,4 +1,5 @@
 import type {
+  AiConfirmationAction,
   AuditLogEntry,
   CaseComparison,
   LoanCase,
@@ -73,11 +74,31 @@ export interface DataProvider {
    */
   notifySupplierReady(caseId: string, hygienePassportPhotoUrl: string): Promise<LoanCase>;
 
-  /** Reports a defective/damaged instrument - photo storage + UI only, no AI recognition yet (v2.2 Phase 2). */
+  /** Reports a defective/damaged instrument - photo storage + UI only (v2.2 Phase 2). */
   createRepairCase(input: RepairCaseInput): Promise<RepairCase>;
   getRepairCases(): Promise<RepairCase[]>;
   getRepairCase(id: string): Promise<RepairCase | null>;
   closeRepairCase(id: string, closedBy: string): Promise<RepairCase>;
+  /**
+   * Runs the Cloud Agent (v2.2 Phase 3) over an already-reported repair
+   * case's photos and stores its proposal on `aiSuggestion` - always
+   * assistive, never applied automatically. Idempotent: if analysis has
+   * already run for this case, returns the existing stored result rather
+   * than calling the model again. Not available in local/demo mode (throws)
+   * - the app must not pretend AI ran without a real backend.
+   */
+  analyzeRepairCase(id: string): Promise<RepairCase>;
+  /**
+   * Records a human's decision on a pending `aiSuggestion` and updates the
+   * case's confirmed instrumentName/refNumber accordingly (see
+   * resolveAiConfirmation.ts). The original aiSuggestion is never modified.
+   */
+  confirmRepairAiSuggestion(
+    id: string,
+    action: AiConfirmationAction,
+    override: { instrumentName?: string; refNumber?: string } | null,
+    confirmedBy: string,
+  ): Promise<RepairCase>;
 
   /** The authenticated caller's own profile (role, active status), or null if not signed in / not provisioned yet. */
   getCurrentProfile(): Promise<UserProfile | null>;
