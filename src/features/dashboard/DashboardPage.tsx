@@ -1,6 +1,8 @@
 import { Card } from '@/components/ui/Card';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { dataProvider } from '@/services';
 import {
+  BarChart3,
   CircleAlert,
   ClipboardList,
   GitCompareArrows,
@@ -64,7 +66,20 @@ interface Stats {
 }
 
 export function DashboardPage() {
+  const { profile } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
+  const analyticsAllowed = !profile || profile.role === 'admin' || profile.role === 'op_leitung';
+  const visibleModules = analyticsAllowed
+    ? [
+        ...modules,
+        {
+          to: '/analytics',
+          icon: BarChart3,
+          title: 'Analytics',
+          description: 'KPIs, Trends und Lieferanten-Auswertungen',
+        },
+      ]
+    : modules;
 
   useEffect(() => {
     Promise.all([dataProvider.getCases(), dataProvider.getSuppliers(), dataProvider.getRepairCases()]).then(
@@ -157,7 +172,7 @@ export function DashboardPage() {
         Weitere Module
       </h3>
       <div className="grid grid-cols-2 gap-3">
-        {modules.map((mod) => {
+        {visibleModules.map((mod) => {
           const Icon = mod.icon;
           return (
             <Link key={mod.to} to={mod.to}>

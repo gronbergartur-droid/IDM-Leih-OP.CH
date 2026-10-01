@@ -1,0 +1,75 @@
+/**
+ * IDM Analytics (v2.2 Phase 5 - IDM Analytics MVP). Read-only reporting
+ * types, computed client-side from the same dataProvider getters every
+ * other screen uses (see docs/roadmap/v2.2/MASTER-PROMPT-v2.2.md section 8).
+ */
+
+export type DateRangePreset = 'today' | '7d' | '30d' | '90d' | 'year' | 'custom';
+
+export interface DateRange {
+  /** Inclusive, null = no lower bound (only possible for a malformed custom range). */
+  start: string | null;
+  /** Inclusive, null = no upper bound (open-ended "until now"). */
+  end: string | null;
+}
+
+export interface AnalyticsFilter {
+  preset: DateRangePreset;
+  /** Only meaningful when preset === 'custom'. */
+  customRange: DateRange;
+  /** null = alle Lieferanten. */
+  supplierId: string | null;
+}
+
+export interface LeihsiebeKpis {
+  aktiveLeihsiebe: number;
+  eingaenge: number;
+  ausgaenge: number;
+  offeneFaelle: number;
+  einsaetze: number;
+  /** Average Eingang->Ausgang duration in hours across compared cases with both timestamps - null if no data. */
+  durchschnittlicheVerweildauerStunden: number | null;
+}
+
+export interface FaelleKpis {
+  faelleHeute: number;
+  faelle7Tage: number;
+  faelle30Tage: number;
+  offeneFaelle: number;
+  abgeschlosseneFaelle: number;
+}
+
+export interface AbweichungenKpis {
+  /** Number of cases with at least one deviation (CaseComparison.hasDeviations), within the filter. */
+  gesamt: number;
+  fehlendeInstrumente: number;
+  zusaetzlicheInstrumente: number;
+  falscheInstrumente: number;
+  mengenabweichungen: number;
+  nichtErkannt: number;
+}
+
+export interface ReparaturKpis {
+  reparaturfaelle: number;
+  offeneReparaturen: number;
+  abgeschlosseneReparaturen: number;
+  wiederholungsreparaturen: number;
+}
+
+export interface DefektartEntry {
+  defekt: string;
+  anzahl: number;
+}
+
+export interface SupplierAnalyticsRow {
+  supplierId: string;
+  supplierName: string;
+  siebeAnzahl: number;
+  faelleAnzahl: number;
+  abweichungenAnzahl: number;
+  fehlendeInstrumente: number;
+  zusaetzlicheInstrumente: number;
+  /** Hours, null if no compared case with both timestamps in this filter. */
+  durchschnittlicheFalldauerStunden: number | null;
+  offeneFaelle: number;
+}

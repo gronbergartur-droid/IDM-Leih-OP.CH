@@ -1,4 +1,5 @@
 import { AppShell } from '@/components/layout/AppShell';
+import { AnalyticsPage } from '@/features/analytics/pages/AnalyticsPage';
 import { AuditLogPage } from '@/features/audit/AuditLogPage';
 import { CaseDetailPage } from '@/features/cases/CaseDetailPage';
 import { CaseOuttakeRoute } from '@/features/cases/CaseOuttakeRoute';
@@ -85,6 +86,7 @@ function App() {
         <Route path="/reparaturen" element={<RepairsPage />} />
         <Route path="/reparaturen/melden" element={<ReportRepairFlow />} />
         <Route path="/reparaturen/:repairId" element={<RepairDetailPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/tarife" element={<PricingPage />} />
         <Route path="/benutzer" element={<UserManagementPage />} />
         <Route

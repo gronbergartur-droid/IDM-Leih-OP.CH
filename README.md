@@ -13,14 +13,19 @@ dem Speichern. Beim Eingang eines Leihsiebs wird daraus ein **Sieb-Fall**
 eröffnet; nach der Operation wird ein zweiter (Ausgangs-)Scan erfasst und
 automatisch mit dem Eingang verglichen (Modul „Vorher/Nachher-Vergleich“).
 
-## Roadmap: IDM Intelligence & IDM Analytics (v2.2, noch nicht implementiert)
+## Roadmap: IDM Intelligence & IDM Analytics (v2.2)
 
-Geplante Erweiterung um zwei zusätzliche Module — **IDM Intelligence**
-(assistive KI-Fotoanalyse für Reparaturen/Instrumente, immer mit
-Pflichtbestätigung durch Menschen) und **IDM Analytics** (read-only
-KPI-Dashboard) — siehe [`docs/roadmap/v2.2/`](docs/roadmap/v2.2/README.md),
-insbesondere `MASTER-PROMPT-v2.2.md` für die vollständige Spezifikation.
-Noch nicht umgesetzt; bestehende Funktionalität bleibt dabei unverändert.
+Erweiterung um zwei zusätzliche Module — **IDM Intelligence** (assistive
+KI-Fotoanalyse für Reparaturen/Instrumente, immer mit Pflichtbestätigung
+durch Menschen) und **IDM Analytics** (read-only KPI-Dashboard) — siehe
+[`docs/roadmap/v2.2/`](docs/roadmap/v2.2/README.md), insbesondere
+`MASTER-PROMPT-v2.2.md` für die vollständige Spezifikation. Bestehende
+Funktionalität bleibt dabei unverändert.
+
+Stand: Phase 2–5 umgesetzt (Reparaturen-Modul, KI-Fotoanalyse, Foto-Archiv,
+IDM Analytics MVP — siehe die jeweiligen Abschnitte weiter unten). Phase
+6–8 (Advanced Analytics, Cloud-Agent-Analytics mit Freitext-Abfragen,
+Production Hardening) sind noch nicht umgesetzt.
 
 ## KI-Nutzung: nur unterstützend
 
@@ -410,6 +415,41 @@ reiner Pixel-Struktur) ist im Master-Prompt explizit als **optionale**
 Erweiterung markiert und hier bewusst nicht umgesetzt; der dHash-Ansatz
 deckt den Kernfall (wiederkehrender Defekt am selben/sehr ähnlichen
 Instrument erkennen) ohne zusätzliche Infrastruktur oder Kosten ab.
+
+## IDM Analytics (v2.2 Phase 5 – Analytics MVP)
+
+Read-only KPI-Dashboard unter `/analytics` (Dashboard-Kachel „Analytics“,
+sichtbar für Admin/OP-Leitung sowie im lokalen Demo-Modus; siehe
+[`docs/roadmap/v2.2/MASTER-PROMPT-v2.2.md`](docs/roadmap/v2.2/MASTER-PROMPT-v2.2.md)
+Abschnitt 8/9/11/12). Nutzt ausschliesslich bestehende `dataProvider`-Getter
+(keine neuen Tabellen/Migrationen) und berechnet alle Kennzahlen client-seitig
+in reinen, unabhängig getesteten Funktionen
+(`src/features/analytics/utils/analyticsCalculations.ts`):
+
+- **Filter**: Zeitraum (Heute/7/30/90 Tage/Dieses Jahr/Benutzerdefiniert) und
+  Lieferant.
+- **KPI-Gruppen**: Leihsiebe (aktive Siebe, Eingänge, Ausgänge, offene Fälle,
+  Einsätze, Ø Verweildauer), Fälle (feste Heute/7/30-Tage-Fenster,
+  unabhängig vom gewählten Zeitraum), Abweichungen (Gesamt sowie fehlende/
+  zusätzliche/falsche Instrumente, Mengenabweichungen, nicht erkannt) und
+  Reparatur (Fälle, offen/abgeschlossen, Wiederholungsreparaturen nach
+  12-Monats-Fenster).
+- **Lieferanten-Analytics**-Tabelle mit reinen Zahlen je Lieferant (Siebe,
+  Fälle, Abweichungen, offene Fälle) — bewusst ohne automatische
+  Gut/Schlecht-Bewertung.
+- **Defektarten**-Übersicht ausschliesslich aus **bestätigten**
+  KI-Vorschlägen (`aiConfirmation === 'accepted'`); eine korrigierte,
+  abgelehnte oder umgeleitete KI-Angabe fliesst nicht ein.
+
+Bewusste Vereinfachungen für die MVP-Phase (dokumentiert direkt im Code):
+„offene" Kennzahlen sind immer ein aktueller Status-Snapshot statt
+zeitraum-gefiltert; „nicht erkannt" bildet auf nicht zugeordnete
+Scan-Ergebnisse ab, da der Soll/Ist-Vergleich keine eigene
+„nicht erkannt"-Kategorie pro Instrument kennt; detaillierte
+Durchlaufzeiten (Eingang→OP→Ausgang) und Instrument-Analytics sind laut
+Roadmap explizit erst Phase 6. Nie werden fehlende Zeitstempel erfunden —
+ohne ausreichende Daten wird „N/A“ bzw. „Keine ausreichenden Daten“
+angezeigt.
 
 ## OCR offline betreiben
 
