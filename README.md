@@ -392,6 +392,25 @@ Supabase) ist die KI-Analyse grundsätzlich nicht verfügbar – die App
 behauptet nie, dass eine Cloud-Analyse stattgefunden hat, ohne echtes
 Backend.
 
+## Foto-Archiv & Ähnlichkeitssuche (v2.2 Phase 4 – Photo Archive)
+
+Beim Melden einer Reparatur wird aus dem Übersichtsfoto ein **perceptual
+difference-hash (dHash)** berechnet (`src/features/repair/imageHash.ts`) –
+rein client-seitig, deterministisch, ohne zusätzliche KI-Kosten oder
+Netzwerkaufruf. Auf der Reparatur-Detailseite werden damit frühere Meldungen
+mit ähnlichem Foto gefunden (Hamming-Distanz zwischen den Hashes, Schwelle
+`SIMILARITY_MATCH_THRESHOLD`) und als Karte **„Ähnliche frühere Meldungen“**
+mit Ähnlichkeits-Prozentwert verlinkt. Wie jeder KI/Heuristik-Vorschlag im
+Haus ist das ein reiner Hinweis für das Fachpersonal, kein automatischer
+Abgleich oder eine Identitätsaussage – zwei Fotos ähnlicher Instrumente
+können ähnliche Hashes ergeben, ohne dasselbe Instrument zu sein.
+
+Eine echte Vektor-/Embedding-Ähnlichkeitssuche (semantische Bildsuche statt
+reiner Pixel-Struktur) ist im Master-Prompt explizit als **optionale**
+Erweiterung markiert und hier bewusst nicht umgesetzt; der dHash-Ansatz
+deckt den Kernfall (wiederkehrender Defekt am selben/sehr ähnlichen
+Instrument erkennen) ohne zusätzliche Infrastruktur oder Kosten ab.
+
 ## OCR offline betreiben
 
 Die OCR-Engine (Worker-Skript + Wasm-Core von tesseract.js) liegt lokal unter

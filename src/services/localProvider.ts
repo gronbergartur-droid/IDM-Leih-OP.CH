@@ -373,6 +373,7 @@ export class LocalDataProvider implements DataProvider {
       overviewPhotoUrl: input.overviewPhotoUrl,
       defectPhotoUrl: input.defectPhotoUrl,
       refPhotoUrl: input.refPhotoUrl,
+      photoHash: input.photoHash,
       defectNote: input.defectNote,
       status: 'open',
       performedBy: input.performedBy,

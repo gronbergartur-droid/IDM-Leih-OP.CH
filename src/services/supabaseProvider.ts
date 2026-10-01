@@ -357,6 +357,7 @@ export class SupabaseDataProvider implements DataProvider {
         overview_photo_url: input.overviewPhotoUrl,
         defect_photo_url: input.defectPhotoUrl,
         ref_photo_url: input.refPhotoUrl,
+        photo_hash: input.photoHash,
         defect_note: input.defectNote,
         performed_by: input.performedBy,
       })
@@ -688,6 +689,7 @@ function mapRepairCaseRow(row: any): RepairCase {
     overviewPhotoUrl: row.overview_photo_url,
     defectPhotoUrl: row.defect_photo_url,
     refPhotoUrl: row.ref_photo_url,
+    photoHash: row.photo_hash,
     defectNote: row.defect_note,
     status: row.status,
     performedBy: row.performed_by,

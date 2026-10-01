@@ -318,6 +318,8 @@ export interface RepairCase {
   overviewPhotoUrl: string;
   defectPhotoUrl: string | null;
   refPhotoUrl: string | null;
+  /** Perceptual difference-hash (dHash) of overviewPhotoUrl, for archive similarity search (v2.2 Phase 4) - see features/repair/imageHash.ts. */
+  photoHash: string | null;
   defectNote: string;
   status: RepairStatus;
   performedBy: string;
@@ -339,6 +341,7 @@ export interface RepairCaseInput {
   overviewPhotoUrl: string;
   defectPhotoUrl: string | null;
   refPhotoUrl: string | null;
+  photoHash: string | null;
   defectNote: string;
   performedBy: string;
 }
