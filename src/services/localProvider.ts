@@ -182,6 +182,10 @@ export class LocalDataProvider implements DataProvider {
       .sort((a, b) => a.position - b.position);
   }
 
+  async getAllTrayInstruments(): Promise<TrayInstrument[]> {
+    return [...this.trayInstruments].sort((a, b) => a.position - b.position);
+  }
+
   async createTray(input: TrayInput): Promise<Tray> {
     if (this.trays.some((t) => normalizeIdentifier(t.code) === normalizeIdentifier(input.code))) {
       throw new Error(`Sieb-Code „${input.code}" existiert bereits.`);

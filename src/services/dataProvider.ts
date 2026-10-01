@@ -43,6 +43,8 @@ export interface DataProvider {
   /** Resolve a tray by its primary code or any of its known aliases (case-insensitive). */
   findTrayByIdentifier(identifier: string): Promise<Tray | null>;
   getTrayInstruments(trayId: string): Promise<TrayInstrument[]>;
+  /** Every TrayInstrument row across every tray, in one call - for aggregations (e.g. Instrument-Analytics) that would otherwise need one request per tray. */
+  getAllTrayInstruments(): Promise<TrayInstrument[]>;
   createTray(input: TrayInput): Promise<Tray>;
   updateTray(id: string, input: TrayInput): Promise<Tray>;
 

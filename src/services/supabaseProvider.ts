@@ -170,6 +170,12 @@ export class SupabaseDataProvider implements DataProvider {
     return (data ?? []).map(mapInstrumentRow);
   }
 
+  async getAllTrayInstruments(): Promise<TrayInstrument[]> {
+    const { data, error } = await this.client.from('tray_instruments').select('*').order('position');
+    if (error) throw error;
+    return (data ?? []).map(mapInstrumentRow);
+  }
+
   async createTray(input: TrayInput): Promise<Tray> {
     const { data, error } = await this.client
       .from('trays')

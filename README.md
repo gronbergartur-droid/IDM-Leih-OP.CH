@@ -541,6 +541,29 @@ Bewusst nicht in diesem Durchgang behoben:
   Frontend-Bundle (nur der öffentliche Anon-Key), keine sensiblen Daten
   in `console.*`-Aufrufen.
 
+### Zweiter Durchgang: Anwendungs-Performance
+
+- **N+1-Abfrage behoben**: `/analytics` lud bisher die Instrumente jedes
+  Siebs einzeln (`getTrayInstruments(trayId)` einmal pro Sieb parallel,
+  also N Requests für N Siebe). Neue `DataProvider`-Methode
+  `getAllTrayInstruments()` lädt alle Sieb-Instrumente in einem einzigen
+  Request; `analyticsService.ts` gruppiert sie clientseitig nach
+  Sieb-ID. Reiner Laufzeitgewinn, insbesondere relevant, sobald der
+  Sieb-Katalog im Spitalbetrieb wächst.
+- **Lazy-Loading erweitert**: `/analytics`, `/analytics/instrumente` und
+  `/benutzer` (alle drei Admin-/OP-Leitung-only) werden jetzt wie
+  Scanner/SET-Scanner/Archiv per `React.lazy()` nachgeladen statt im
+  initialen Bundle enthalten zu sein. Gemessener Effekt ist bewusst
+  ehrlich benannt: da React Router ohne explizites `lazy()` keine
+  automatische Code-Teilung pro Route vornimmt, bleiben ca. 20 weitere,
+  seltener besuchte CRUD-/Detail-Routen (Lieferanten, Siebe, Ärzte,
+  Fälle, Reparaturen, Historie, Audit …) weiterhin Teil des initialen
+  Bundles; die tatsächliche Einsparung am Erstladevolumen durch diesen
+  Schritt liegt bei nur ca. 3–4 KB (gzip). Eine vollständige
+  routenweise Code-Teilung über alle übrigen Screens wäre ein deutlich
+  grösserer, eigener Umbau mit entsprechendem Testaufwand und ist
+  bewusst nicht Teil dieses Durchgangs.
+
 ## OCR offline betreiben
 
 Die OCR-Engine (Worker-Skript + Wasm-Core von tesseract.js) liegt lokal unter

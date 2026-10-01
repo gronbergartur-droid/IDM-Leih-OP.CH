@@ -20,16 +20,24 @@ export interface AnalyticsData {
  * testable.
  */
 export async function loadAnalyticsData(): Promise<AnalyticsData> {
-  const [suppliers, trays, cases, scans, repairCases] = await Promise.all([
+  const [suppliers, trays, cases, scans, repairCases, allTrayInstruments] = await Promise.all([
     dataProvider.getSuppliers(),
     dataProvider.getTrays(),
     dataProvider.getCases(),
     dataProvider.getScanHistory(),
     dataProvider.getRepairCases(),
+    // One request for every tray's instruments, instead of one request per
+    // tray (getAllTrayInstruments) - avoids an N+1 fan-out that would scale
+    // with the number of trays on every /analytics page view.
+    dataProvider.getAllTrayInstruments(),
   ]);
 
-  const trayInstrumentLists = await Promise.all(trays.map((t) => dataProvider.getTrayInstruments(t.id)));
-  const trayInstrumentsByTrayId = new Map(trays.map((t, i) => [t.id, trayInstrumentLists[i]]));
+  const trayInstrumentsByTrayId = new Map<string, TrayInstrument[]>();
+  for (const instrument of allTrayInstruments) {
+    const list = trayInstrumentsByTrayId.get(instrument.trayId) ?? [];
+    list.push(instrument);
+    trayInstrumentsByTrayId.set(instrument.trayId, list);
+  }
 
   return { suppliers, trays, cases, scans, repairCases, trayInstrumentsByTrayId };
 }
