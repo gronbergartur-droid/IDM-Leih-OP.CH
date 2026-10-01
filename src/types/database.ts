@@ -173,11 +173,13 @@ export type AuditAction =
   | 'case_compared'
   | 'case_readiness_notified'
   | 'archive_downloaded'
-  | 'physician_created';
+  | 'physician_created'
+  | 'repair_reported'
+  | 'repair_closed';
 
 export interface AuditLogEntry {
   id: UUID;
-  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician';
+  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician' | 'repair';
   entityId: UUID;
   action: AuditAction;
   performedBy: string;
@@ -266,6 +268,47 @@ export interface LoanCase {
   readinessNotifiedAt: ISODateString | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
+}
+
+// ---------------------------------------------------------------------------
+// Reparatur (v2.2 Phase 2 - Repair Photo Foundation: storage + UI only, no
+// AI yet - see docs/roadmap/v2.2/MASTER-PROMPT-v2.2.md section 5/21).
+// ---------------------------------------------------------------------------
+
+export type RepairStatus = 'open' | 'closed';
+
+/**
+ * A reported defective/damaged instrument: up to three photos (overview
+ * mandatory, defect/REF close-ups optional) plus a free-text description.
+ * Deliberately not tied to a specific TrayInstrument row yet - Phase 3
+ * (IDM Intelligence) is what will add recognition/matching on top of this.
+ */
+export interface RepairCase {
+  id: UUID;
+  /** The Sieb this instrument normally belongs to, if known. */
+  trayId: UUID | null;
+  supplierId: UUID | null;
+  instrumentName: string;
+  overviewPhotoUrl: string;
+  defectPhotoUrl: string | null;
+  refPhotoUrl: string | null;
+  defectNote: string;
+  status: RepairStatus;
+  performedBy: string;
+  closedBy: string | null;
+  createdAt: ISODateString;
+  closedAt: ISODateString | null;
+}
+
+export interface RepairCaseInput {
+  trayId: UUID | null;
+  supplierId: UUID | null;
+  instrumentName: string;
+  overviewPhotoUrl: string;
+  defectPhotoUrl: string | null;
+  refPhotoUrl: string | null;
+  defectNote: string;
+  performedBy: string;
 }
 
 // ---------------------------------------------------------------------------

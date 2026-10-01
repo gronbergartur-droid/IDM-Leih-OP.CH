@@ -16,6 +16,9 @@ import { SupplierDetailPage } from '@/features/suppliers/SupplierDetailPage';
 import { SuppliersPage } from '@/features/suppliers/SuppliersPage';
 import { CreateTrayPage } from '@/features/trays/CreateTrayPage';
 import { EditTrayPage } from '@/features/trays/EditTrayPage';
+import { RepairDetailPage } from '@/features/repair/RepairDetailPage';
+import { ReportRepairFlow } from '@/features/repair/ReportRepairFlow';
+import { RepairsPage } from '@/features/repair/RepairsPage';
 import { UserManagementPage } from '@/features/users/UserManagementPage';
 import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
@@ -79,6 +82,9 @@ function App() {
         <Route path="/faelle/:caseId" element={<CaseDetailPage />} />
         <Route path="/faelle/:caseId/ausgang" element={<CaseOuttakeRoute />} />
         <Route path="/faelle/:caseId/hygiene-pass" element={<HygienePassPage />} />
+        <Route path="/reparaturen" element={<RepairsPage />} />
+        <Route path="/reparaturen/melden" element={<ReportRepairFlow />} />
+        <Route path="/reparaturen/:repairId" element={<RepairDetailPage />} />
         <Route path="/tarife" element={<PricingPage />} />
         <Route path="/benutzer" element={<UserManagementPage />} />
         <Route

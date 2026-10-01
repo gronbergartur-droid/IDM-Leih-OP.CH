@@ -17,6 +17,7 @@ import {
   Trash2,
   Truck,
   UserPlus,
+  Wrench,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -40,6 +41,8 @@ const ACTION_META: Record<AuditAction, { label: string; icon: typeof ShieldCheck
   case_readiness_notified: { label: 'Lieferant benachrichtigt', icon: Mail, tone: 'text-success-600 bg-success-50' },
   archive_downloaded: { label: 'Archiv heruntergeladen', icon: Archive, tone: 'text-brand-600 bg-brand-50' },
   physician_created: { label: 'Arzt angelegt', icon: Stethoscope, tone: 'text-brand-600 bg-brand-50' },
+  repair_reported: { label: 'Reparatur gemeldet', icon: Wrench, tone: 'text-warning-600 bg-warning-50' },
+  repair_closed: { label: 'Reparatur abgeschlossen', icon: Wrench, tone: 'text-success-600 bg-success-50' },
 };
 
 export function AuditLogPage() {

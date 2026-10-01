@@ -4,6 +4,8 @@ import type {
   LoanCase,
   Physician,
   PhysicianInput,
+  RepairCase,
+  RepairCaseInput,
   ScanRecord,
   Supplier,
   SupplierInput,
@@ -70,6 +72,12 @@ export interface DataProvider {
    * meaningful once the case is 'compared' (after the outtake scan).
    */
   notifySupplierReady(caseId: string, hygienePassportPhotoUrl: string): Promise<LoanCase>;
+
+  /** Reports a defective/damaged instrument - photo storage + UI only, no AI recognition yet (v2.2 Phase 2). */
+  createRepairCase(input: RepairCaseInput): Promise<RepairCase>;
+  getRepairCases(): Promise<RepairCase[]>;
+  getRepairCase(id: string): Promise<RepairCase | null>;
+  closeRepairCase(id: string, closedBy: string): Promise<RepairCase>;
 
   /** The authenticated caller's own profile (role, active status), or null if not signed in / not provisioned yet. */
   getCurrentProfile(): Promise<UserProfile | null>;
