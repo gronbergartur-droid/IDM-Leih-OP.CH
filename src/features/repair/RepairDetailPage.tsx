@@ -159,7 +159,7 @@ export function RepairDetailPage() {
 
         {error && <p className="mt-3 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
 
-        {repair.status === 'open' && !repair.aiSuggestion && (
+        {!repair.aiSuggestion && (
           <Button
             variant="secondary"
             size="lg"
