@@ -98,3 +98,30 @@ export interface LifecycleTimes {
   opZuAusgangStunden: number | null;
   eingangZuAusgangStunden: number | null;
 }
+
+/**
+ * Everything the Cloud Agent NL-query endpoint (v2.2 Phase 7, docs section
+ * 13) is allowed to see and answer from - the same already-computed,
+ * already-aggregated KPI results a human sees on screen, never raw
+ * case/scan/repair records. This is the privacy/safety boundary: the model
+ * can only quote numbers that exist in this object, never derive new ones
+ * from source data it was never given.
+ */
+export interface AnalyticsSnapshot {
+  filterLabel: string;
+  leihsiebe: LeihsiebeKpis;
+  faelle: FaelleKpis;
+  abweichungen: AbweichungenKpis;
+  reparatur: ReparaturKpis;
+  lifecycle: LifecycleTimes;
+  defektarten: DefektartEntry[];
+  supplierRows: SupplierAnalyticsRow[];
+  instrumentRows: InstrumentAnalyticsRow[];
+}
+
+/** Cloud Agent's answer to a natural-language question over an AnalyticsSnapshot - see docs section 13: "Every numeric answer must be traceable". */
+export interface AnalyticsAnswer {
+  answer: string;
+  /** Which top-level AnalyticsSnapshot fields the answer was derived from, e.g. ["reparatur", "instrumentRows"]. */
+  basis: string[];
+}

@@ -22,10 +22,10 @@ durch Menschen) und **IDM Analytics** (read-only KPI-Dashboard) — siehe
 `MASTER-PROMPT-v2.2.md` für die vollständige Spezifikation. Bestehende
 Funktionalität bleibt dabei unverändert.
 
-Stand: Phase 2–6 umgesetzt (Reparaturen-Modul, KI-Fotoanalyse, Foto-Archiv,
-IDM Analytics MVP, Advanced Analytics — siehe die jeweiligen Abschnitte
-weiter unten). Phase 7–8 (Cloud-Agent-Analytics mit Freitext-Abfragen,
-Production Hardening) sind noch nicht umgesetzt.
+Stand: Phase 2–7 umgesetzt (Reparaturen-Modul, KI-Fotoanalyse, Foto-Archiv,
+IDM Analytics MVP, Advanced Analytics, Cloud-Agent-Analytics — siehe die
+jeweiligen Abschnitte weiter unten). Phase 8 (Production Hardening) ist
+noch nicht umgesetzt.
 
 ## KI-Nutzung: nur unterstützend
 
@@ -472,6 +472,29 @@ Erweitert das Analytics-Dashboard um:
   `0011_analytics_export_audit.sql`). `exceljs` wird dafür per
   dynamischem Import nachgeladen, damit die Haupt-Bundle-Grösse für alle
   anderen Seiten unverändert bleibt.
+
+## Cloud Agent Analytics (v2.2 Phase 7)
+
+Freitext-Fragen-Feld „Frage an die Daten (Cloud Agent)" auf `/analytics`
+(ruft die Supabase Edge Function `supabase/functions/analytics-query` auf,
+nutzt denselben `ANTHROPIC_API_KEY` wie Phase 3 — kein zusätzliches Secret
+nötig). Beispiele: „Wie viele Fälle hatten Abweichungen?“, „Welches
+Instrument hat am meisten Reparaturen?“.
+
+Sicherheitsdesign (siehe `docs/roadmap/v2.2/MASTER-PROMPT-v2.2.md`
+Abschnitt 13 „Every numeric answer must be traceable“): die KI bekommt
+**niemals** rohe Fall-/Scan-/Reparaturdaten, sondern ausschliesslich den
+bereits berechneten, bereits aggregierten KPI-„Snapshot“, den die Seite
+selbst anzeigt (`AnalyticsSnapshot` — dieselben Zahlen aus
+`analyticsCalculations.ts`, inkl. Zeitraum/Lieferanten-Filter). Die KI
+kann also nur Zahlen zitieren, die bereits existieren, nie neue
+berechnen oder schätzen; bei nicht beantwortbaren Fragen antwortet sie
+explizit „Diese Frage kann anhand der verfügbaren Daten nicht beantwortet
+werden.“ statt zu raten. Jede Antwort gibt zusätzlich ihre „Basis“ an
+(welche Snapshot-Felder verwendet wurden). Im lokalen Demo-Modus (ohne
+Supabase) ist die Funktion grundsätzlich nicht verfügbar — die App
+behauptet nie, dass eine Cloud-Agent-Antwort vorliegt, ohne echtes
+Backend.
 
 ## OCR offline betreiben
 

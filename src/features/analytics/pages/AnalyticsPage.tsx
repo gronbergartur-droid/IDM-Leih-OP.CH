@@ -4,11 +4,11 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { dataProvider } from '@/services';
-import { Download, Wrench } from 'lucide-react';
+import { Download, Sparkles, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { loadAnalyticsData, type AnalyticsData } from '../services/analyticsService';
-import type { AnalyticsFilter, DateRangePreset } from '../types/analytics';
+import type { AnalyticsAnswer, AnalyticsFilter, AnalyticsSnapshot, DateRangePreset } from '../types/analytics';
 import {
   computeAbweichungenKpis,
   computeDefektarten,
@@ -31,6 +31,12 @@ const PRESET_LABEL: Record<DateRangePreset, string> = {
 
 const PRESETS: DateRangePreset[] = ['today', '7d', '30d', '90d', 'year', 'custom'];
 
+const EXAMPLE_QUESTIONS = [
+  'Wie viele Fälle hatten Abweichungen?',
+  'Welches Instrument hat am meisten Reparaturen?',
+  'Wie lange dauerte die durchschnittliche Bearbeitung?',
+];
+
 /**
  * IDM Analytics MVP (v2.2 Phase 5) - read-only KPI dashboard computed
  * client-side from the same dataProvider getters every other screen uses
@@ -42,6 +48,10 @@ export function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [asking, setAsking] = useState(false);
+  const [answer, setAnswer] = useState<AnalyticsAnswer | null>(null);
+  const [askError, setAskError] = useState<string | null>(null);
   const [filter, setFilter] = useState<AnalyticsFilter>({
     preset: '30d',
     customRange: { start: null, end: null },
@@ -90,15 +100,21 @@ export function AnalyticsPage() {
     [data, filter, now],
   );
 
+  const filterLabel =
+    filter.preset === 'custom'
+      ? `Benutzerdefiniert (${filter.customRange.start?.slice(0, 10) ?? '…'} – ${filter.customRange.end?.slice(0, 10) ?? '…'})`
+      : PRESET_LABEL[filter.preset];
+
+  const snapshot: AnalyticsSnapshot | null =
+    leihsiebe && faelle && abweichungen && reparatur && lifecycle
+      ? { filterLabel, leihsiebe, faelle, abweichungen, reparatur, lifecycle, defektarten, supplierRows, instrumentRows }
+      : null;
+
   const handleExport = async () => {
     if (!data || !leihsiebe || !faelle || !abweichungen || !reparatur || !lifecycle) return;
     setError(null);
     setExporting(true);
     try {
-      const filterLabel =
-        filter.preset === 'custom'
-          ? `Benutzerdefiniert (${filter.customRange.start?.slice(0, 10) ?? '…'} – ${filter.customRange.end?.slice(0, 10) ?? '…'})`
-          : PRESET_LABEL[filter.preset];
       // Dynamically imported so the (large) exceljs dependency only loads
       // when a user actually exports, not on every /analytics page view.
       const { buildAnalyticsExport } = await import('../utils/analyticsExport');
@@ -137,6 +153,21 @@ export function AnalyticsPage() {
       setError(err instanceof Error ? err.message : 'Export fehlgeschlagen.');
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleAsk = async (q: string) => {
+    if (!snapshot || !q.trim() || asking) return;
+    setAskError(null);
+    setAnswer(null);
+    setAsking(true);
+    try {
+      const result = await dataProvider.askAnalyticsQuestion(q.trim(), snapshot);
+      setAnswer(result);
+    } catch (err) {
+      setAskError(err instanceof Error ? err.message : 'Abfrage fehlgeschlagen.');
+    } finally {
+      setAsking(false);
     }
   };
 
@@ -216,6 +247,50 @@ export function AnalyticsPage() {
             </option>
           ))}
         </select>
+
+        <Card className="mt-4 p-3.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-500">
+            <Sparkles size={14} className="text-brand-500" />
+            <span>Frage an die Daten (Cloud Agent)</span>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAsk(question)}
+              placeholder="z. B. Welches Instrument hat am meisten Reparaturen?"
+              className="flex-1 rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            />
+            <Button size="md" disabled={!snapshot || !question.trim() || asking} onClick={() => handleAsk(question)}>
+              {asking ? '…' : 'Fragen'}
+            </Button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {EXAMPLE_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                type="button"
+                disabled={!snapshot || asking}
+                onClick={() => {
+                  setQuestion(q);
+                  handleAsk(q);
+                }}
+                className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] text-ink-600 disabled:opacity-50"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+          {askError && <p className="mt-2 rounded-xl bg-danger-50 p-2.5 text-xs text-danger-600">{askError}</p>}
+          {answer && (
+            <div className="mt-3 rounded-xl bg-brand-50 p-3">
+              <p className="text-sm text-ink-900">{answer.answer}</p>
+              {answer.basis.length > 0 && (
+                <p className="mt-1.5 text-[11px] text-ink-400">Basis: {answer.basis.join(', ')}</p>
+              )}
+            </div>
+          )}
+        </Card>
 
         {!data ? (
           <p className="mt-10 text-center text-sm text-ink-400">Wird geladen …</p>

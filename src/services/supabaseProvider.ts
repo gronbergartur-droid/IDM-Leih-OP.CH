@@ -1,3 +1,4 @@
+import type { AnalyticsAnswer, AnalyticsSnapshot } from '@/features/analytics/types/analytics';
 import { resolveAiConfirmation } from '@/features/repair/resolveAiConfirmation';
 import { supabase } from '@/lib/supabase/client';
 import type {
@@ -428,6 +429,17 @@ export class SupabaseDataProvider implements DataProvider {
       .single();
     if (error) throw error;
     return mapRepairCaseRow(data);
+  }
+
+  async askAnalyticsQuestion(question: string, snapshot: AnalyticsSnapshot): Promise<AnalyticsAnswer> {
+    const { data, error } = await this.client.functions.invoke('analytics-query', {
+      body: { question, snapshot },
+    });
+    if (error) {
+      const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(detail?.error ?? error.message);
+    }
+    return data;
   }
 
   // ---------------------------------------------------------------------
