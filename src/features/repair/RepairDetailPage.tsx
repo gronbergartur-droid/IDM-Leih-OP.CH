@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { dataProvider } from '@/services';
 import type { AiConfirmationAction, RepairCase, Tray } from '@/types/database';
 import { CheckCircle2, Sparkles } from 'lucide-react';
@@ -118,15 +119,20 @@ export function RepairDetailPage() {
     setConfirming(true);
     try {
       await dataProvider.confirmRepairAiSuggestion(repairId, action, override, performedBy);
-      await dataProvider.appendAuditEntry({
-        id: crypto.randomUUID(),
-        entityType: 'repair',
-        entityId: repairId,
-        action: 'repair_ai_confirmed',
-        performedBy,
-        details: { decision: action },
-        createdAt: new Date().toISOString(),
-      });
+      // Against Supabase, confirm-repair-ai logs repair_ai_confirmed itself
+      // server-side (so it can't be skipped/forged) - only local/demo mode,
+      // which has no server to do that, needs the client to log it here.
+      if (!isSupabaseConfigured) {
+        await dataProvider.appendAuditEntry({
+          id: crypto.randomUUID(),
+          entityType: 'repair',
+          entityId: repairId,
+          action: 'repair_ai_confirmed',
+          performedBy,
+          details: { decision: action },
+          createdAt: new Date().toISOString(),
+        });
+      }
       setCorrecting(null);
       await load();
     } catch (err) {

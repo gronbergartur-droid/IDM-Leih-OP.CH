@@ -1,5 +1,4 @@
 import type { AnalyticsAnswer, AnalyticsSnapshot } from '@/features/analytics/types/analytics';
-import { resolveAiConfirmation } from '@/features/repair/resolveAiConfirmation';
 import { supabase } from '@/lib/supabase/client';
 import type {
   AiConfirmationAction,
@@ -416,24 +415,21 @@ export class SupabaseDataProvider implements DataProvider {
     id: string,
     action: AiConfirmationAction,
     override: { instrumentName?: string; refNumber?: string } | null,
-    confirmedBy: string,
+    _confirmedBy: string,
   ): Promise<RepairCase> {
-    const existing = await this.getRepairCase(id);
-    if (!existing) throw new Error('Reparatur nicht gefunden.');
-    const resolved = resolveAiConfirmation(existing, existing.aiSuggestion, action, override ?? null);
-    const { data, error } = await this.client
-      .from('repair_cases')
-      .update({
-        instrument_name: resolved.instrumentName,
-        ref_number: resolved.refNumber,
-        ai_confirmation: action,
-        confirmed_by: confirmedBy,
-        confirmed_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select('*')
-      .single();
-    if (error) throw error;
+    // Runs through the confirm-repair-ai Edge Function, not a direct table
+    // update: repair_cases.ai_confirmation/confirmed_by/confirmed_at (and
+    // ai_suggestion) are no longer authenticated-writable (see
+    // supabase/migrations/0013_repair_cases_column_protection.sql) -
+    // confirmed_by is always derived server-side from the caller's own
+    // profile, never trusted from the client, so _confirmedBy is unused here.
+    const { data, error } = await this.client.functions.invoke('confirm-repair-ai', {
+      body: { repairCaseId: id, action, override },
+    });
+    if (error) {
+      const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(detail?.error ?? error.message);
+    }
     return mapRepairCaseRow(data);
   }
 

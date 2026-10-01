@@ -17,8 +17,12 @@
 // stored result is returned as-is rather than calling the model again
 // (acceptance test "duplicate processing of the same image is idempotent").
 //
-// Runs with the caller's own JWT forwarded (not the service role), so RLS
-// still applies exactly as it would through the REST API directly.
+// Runs with the caller's own JWT forwarded for everything except the final
+// write: supabase/migrations/0013_repair_cases_column_protection.sql
+// revokes UPDATE on ai_suggestion (and the human-confirmation columns)
+// from `authenticated`, so a direct client PATCH can no longer forge an
+// AI suggestion - this function writes it via the service-role key
+// instead, only after the same identity/active-user checks as before.
 //
 // Requires the ANTHROPIC_API_KEY secret (Supabase Dashboard -> Edge
 // Functions -> Secrets). ANTHROPIC_MODEL is optional and defaults to
@@ -31,6 +35,7 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const VISIBLE_DEFECT_CANDIDATES = [
   "sichtbare Deformation",
@@ -65,10 +70,23 @@ Regeln:
 - Du bewertest NIEMALS, ob das Instrument sicher, einsatzfaehig oder reparabel ist - das ist nicht deine Aufgabe und entscheidet ausschliesslich Fachpersonal.
 - Bei Unsicherheit: niedrige confidence statt Raten.`;
 
+// The browser sends a CORS preflight (OPTIONS) before the actual POST for
+// any cross-origin request carrying an Authorization header - which every
+// call here does. Without handling it and echoing these headers on every
+// response (success and error alike), the preflight itself gets rejected
+// and the browser never even sends the real request, surfacing to the
+// Supabase JS client as an opaque "Failed to send a request to the Edge
+// Function" with no further detail.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function jsonError(message: string, status: number): Response {
   return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
@@ -79,6 +97,7 @@ function parseDataUrl(dataUrl: string): { mediaType: string; base64: string } | 
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return jsonError("Method not allowed.", 405);
   if (!ANTHROPIC_API_KEY) return jsonError("ANTHROPIC_API_KEY ist nicht konfiguriert.", 500);
 
@@ -117,7 +136,10 @@ Deno.serve(async (req) => {
 
   // Idempotent - a result already exists, don't call the model again.
   if (repairCase.ai_suggestion) {
-    return new Response(JSON.stringify(repairCase), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify(repairCase), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    });
   }
 
   const photos: { label: string; dataUrl: string }[] = [
@@ -196,7 +218,8 @@ Deno.serve(async (req) => {
     analyzedAt: now,
   };
 
-  const { data: updated, error: updateError } = await supabase
+  const privileged = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: updated, error: updateError } = await privileged
     .from("repair_cases")
     .update({ ai_suggestion: aiSuggestion })
     .eq("id", repairCaseId)
@@ -214,5 +237,8 @@ Deno.serve(async (req) => {
     created_at: now,
   });
 
-  return new Response(JSON.stringify(updated), { status: 200, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(updated), {
+    status: 200,
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+  });
 });

@@ -499,6 +499,54 @@ Supabase) ist die Funktion grundsätzlich nicht verfügbar — die App
 behauptet nie, dass eine Cloud-Agent-Antwort vorliegt, ohne echtes
 Backend.
 
+## Repair-AI-Bestätigung: Server-seitiger Schutz
+
+Ein externes Security-Review (IDM AI Agent Master Prompt) deckte eine
+reale Lücke auf: die RLS-Policy `Active users update repair_cases`
+(`for update using (is_active_user())`) schränkt nur ein, welche **Zeilen**
+eine aktive Person ändern darf, nicht welche **Spalten**. Jede aktive
+Person konnte daher `ai_suggestion`, `ai_confirmation`, `confirmed_by`
+und `confirmed_at` direkt per REST-`PATCH` setzen — unter Umgehung von
+`resolveAiConfirmation()`, inklusive Vortäuschen einer fremden
+Bestätigung (`confirmed_by` wurde nie gegen die eigene Identität
+geprüft).
+
+Behoben in zwei Teilen:
+
+- **`supabase/migrations/0013_repair_cases_column_protection.sql`**:
+  entzieht `authenticated` das `UPDATE`-Recht auf genau diese vier
+  Spalten (`revoke update (...) on repair_cases from authenticated`).
+  Bewusst nicht angefasst: `status`/`closed_by`/`closed_at` (separater,
+  nicht gemeldeter Befund, eigener künftiger Durchgang).
+- **`supabase/functions/confirm-repair-ai`** (neu) ist ab jetzt der
+  einzige Weg, diese Spalten zu schreiben: prüft JWT + aktive Person,
+  lädt den Fall über den eigenen (RLS-geprüften) Client der Person,
+  berechnet `instrument_name`/`ref_number` serverseitig (Logik 1:1
+  portiert aus `resolveAiConfirmation.ts`), lehnt eine zweite
+  Bestätigung desselben Vorschlags ab (409) und schreibt erst dann über
+  den Service-Role-Key — `confirmed_by` kommt dabei **immer** aus dem
+  eigenen Profil der Person, nie vom Client. `analyze-repair-photo`
+  wurde identisch umgestellt: schreibt `ai_suggestion` jetzt ebenfalls
+  über den Service-Role-Key, nach denselben Identitäts-/Aktiv-Prüfungen
+  wie zuvor — von aussen unverändertes Verhalten, nur die
+  Schreibberechtigung ist jetzt eng genug.
+
+**Deployment-Reihenfolge ist hier wichtig** (anders als bei allen
+anderen Migrationen dieser Session): Die Migration entzieht einer
+Direkt-Schreibung ein Recht, von dem das **aktuell live laufende**
+Frontend (noch auf `main`, ohne diese Änderung) für die Bestätigung
+abhängt. Deshalb:
+
+1. Beide Edge Functions sind bereits live deployed (reiner Zugewinn,
+   funktioniert unabhängig vom Migrationsstatus, da Service-Role immer
+   schreiben darf).
+2. Die Migration selbst wurde **bewusst noch nicht** auf das Live-Projekt
+   angewendet — erst nachdem dieser PR gemerged und das Frontend
+   (welches jetzt `confirm-repair-ai` statt der Direkt-Schreibung
+   aufruft) tatsächlich neu deployed ist, darf sie angewendet werden.
+   Vorher würde sie die Bestätigungs-Buttons (Übernehmen/Korrigieren/
+   Anderes Instrument/Ablehnen) im Live-Betrieb sofort brechen.
+
 ## Production Hardening: Security-/Privacy-Audit (v2.2 Phase 8)
 
 Erster Durchgang der Phase-8-Härtung, basierend auf einem Audit mit
