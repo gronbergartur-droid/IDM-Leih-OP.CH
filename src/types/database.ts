@@ -177,11 +177,12 @@ export type AuditAction =
   | 'repair_reported'
   | 'repair_closed'
   | 'repair_ai_analyzed'
-  | 'repair_ai_confirmed';
+  | 'repair_ai_confirmed'
+  | 'analytics_exported';
 
 export interface AuditLogEntry {
   id: UUID;
-  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician' | 'repair';
+  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician' | 'repair' | 'analytics';
   entityId: UUID;
   action: AuditAction;
   performedBy: string;

@@ -5,6 +5,7 @@ import type {
   ScanRecord,
   Supplier,
   Tray,
+  TrayInstrument,
 } from '@/types/database';
 import { describe, expect, it } from 'vitest';
 import type { AnalyticsFilter } from '../types/analytics';
@@ -12,7 +13,9 @@ import {
   computeAbweichungenKpis,
   computeDefektarten,
   computeFaelleKpis,
+  computeInstrumentAnalytics,
   computeLeihsiebeKpis,
+  computeLifecycleTimes,
   computeReparaturKpis,
   computeSupplierAnalytics,
   countRepeatRepairInstruments,
@@ -143,6 +146,19 @@ function repairCase(overrides: Partial<RepairCase> = {}): RepairCase {
     aiConfirmation: null,
     confirmedBy: null,
     confirmedAt: null,
+    ...overrides,
+  };
+}
+
+function trayInstrument(overrides: Partial<TrayInstrument> = {}): TrayInstrument {
+  return {
+    id: crypto.randomUUID(),
+    trayId: 'tray-1',
+    name: 'Schere',
+    quantity: 1,
+    position: 0,
+    critical: false,
+    referenceImageUrl: null,
     ...overrides,
   };
 }
@@ -344,5 +360,108 @@ describe('computeSupplierAnalytics', () => {
     expect(andereRow.abweichungenAnzahl).toBe(1);
     expect(andereRow.durchschnittlicheFalldauerStunden).toBeCloseTo(48, 0);
     expect(rows.every((r) => !('rating' in r) && !('score' in r))).toBe(true);
+  });
+});
+
+describe('computeInstrumentAnalytics', () => {
+  it('groups by normalized instrument name across trays, cases, deviations and repairs', () => {
+    const trays = [tray(), tray({ id: 'tray-2' })];
+    const trayInstrumentsByTrayId = new Map<string, ReturnType<typeof trayInstrument>[]>([
+      ['tray-1', [trayInstrument({ name: 'Schere', quantity: 2 }), trayInstrument({ name: ' Klemme ', quantity: 1 })]],
+      ['tray-2', [trayInstrument({ trayId: 'tray-2', name: 'schere', quantity: 3 })]],
+    ]);
+    const cases = [
+      loanCase({ trayId: 'tray-1', createdAt: daysAgo(2) }),
+      loanCase({
+        trayId: 'tray-1',
+        createdAt: daysAgo(3),
+        status: 'compared',
+        comparison: comparison({
+          comparedAt: daysAgo(1),
+          hasDeviations: true,
+          instrumentDeltas: [
+            { instrumentId: 'a', name: 'Schere', intakeQuantity: 2, outtakeQuantity: 1, delta: -1, critical: false },
+          ],
+        }),
+      }),
+    ];
+    const repairs = [
+      repairCase({ instrumentName: 'Schere', createdAt: daysAgo(1) }),
+      repairCase({ instrumentName: 'Unbekanntes Teil', createdAt: daysAgo(1), trayId: null }),
+    ];
+
+    const rows = computeInstrumentAnalytics(trays, trayInstrumentsByTrayId, cases, repairs, baseFilter(), NOW);
+
+    const schere = rows.find((r) => r.key === 'schere')!;
+    expect(schere.vorkommen).toBe(5); // 2 (tray-1) + 3 (tray-2), case-insensitive/whitespace-insensitive match
+    expect(schere.faelleAnzahl).toBe(2); // both cases use tray-1
+    expect(schere.abweichungenAnzahl).toBe(1);
+    expect(schere.reparaturenAnzahl).toBe(1);
+
+    const klemme = rows.find((r) => r.key === 'klemme')!;
+    expect(klemme.vorkommen).toBe(1);
+    expect(klemme.faelleAnzahl).toBe(2);
+
+    // A repaired instrument with no tray composition at all still appears, with vorkommen 0.
+    const unbekannt = rows.find((r) => r.key === 'unbekanntes teil')!;
+    expect(unbekannt.vorkommen).toBe(0);
+    expect(unbekannt.reparaturenAnzahl).toBe(1);
+  });
+
+  it('flags an instrument as a repeat repair once it has 2+ reports within 12 months', () => {
+    const trays = [tray()];
+    const trayInstrumentsByTrayId = new Map([['tray-1', [trayInstrument({ name: 'Schere' })]]]);
+    const repairs = [
+      repairCase({ instrumentName: 'Schere', createdAt: daysAgo(300) }),
+      repairCase({ instrumentName: 'Schere', createdAt: daysAgo(10) }),
+    ];
+
+    const rows = computeInstrumentAnalytics(trays, trayInstrumentsByTrayId, [], repairs, baseFilter(), NOW);
+    expect(rows.find((r) => r.key === 'schere')!.wiederholungsreparatur).toBe(true);
+  });
+});
+
+describe('computeLifecycleTimes', () => {
+  it('computes Eingang->OP->Ausgang only for cases with a plausible OP-Datum, Eingang->Ausgang for all compared cases', () => {
+    const cases = [
+      loanCase({
+        createdAt: daysAgo(4),
+        operationDate: daysAgo(3),
+        status: 'compared',
+        comparison: comparison({ comparedAt: daysAgo(1) }),
+      }),
+      loanCase({
+        createdAt: daysAgo(2),
+        operationDate: null,
+        status: 'compared',
+        comparison: comparison({ comparedAt: daysAgo(1) }),
+      }),
+    ];
+
+    const times = computeLifecycleTimes(cases, baseFilter(), NOW);
+    expect(times.eingangZuAusgangStunden).not.toBeNull();
+    expect(times.eingangZuOpStunden).toBeCloseTo(24, 0);
+    expect(times.opZuAusgangStunden).toBeCloseTo(48, 0);
+  });
+
+  it('excludes an implausible OP-Datum (outside Eingang..Ausgang) rather than showing a negative duration', () => {
+    const cases = [
+      loanCase({
+        createdAt: daysAgo(2),
+        operationDate: daysAgo(5), // before Eingang - implausible
+        status: 'compared',
+        comparison: comparison({ comparedAt: daysAgo(1) }),
+      }),
+    ];
+    const times = computeLifecycleTimes(cases, baseFilter(), NOW);
+    expect(times.eingangZuOpStunden).toBeNull();
+    expect(times.opZuAusgangStunden).toBeNull();
+  });
+
+  it('reports null (never invented) when there are no compared cases', () => {
+    const times = computeLifecycleTimes([loanCase()], baseFilter(), NOW);
+    expect(times.eingangZuOpStunden).toBeNull();
+    expect(times.opZuAusgangStunden).toBeNull();
+    expect(times.eingangZuAusgangStunden).toBeNull();
   });
 });

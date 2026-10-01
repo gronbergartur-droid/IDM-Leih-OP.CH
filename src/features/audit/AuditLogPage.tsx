@@ -4,6 +4,7 @@ import { dataProvider } from '@/services';
 import type { AuditAction, AuditLogEntry } from '@/types/database';
 import {
   Archive,
+  BarChart3,
   CircleCheck,
   FileSearch,
   GitCompareArrows,
@@ -46,6 +47,7 @@ const ACTION_META: Record<AuditAction, { label: string; icon: typeof ShieldCheck
   repair_closed: { label: 'Reparatur abgeschlossen', icon: Wrench, tone: 'text-success-600 bg-success-50' },
   repair_ai_analyzed: { label: 'KI-Analyse (Reparatur)', icon: Sparkles, tone: 'text-brand-600 bg-brand-50' },
   repair_ai_confirmed: { label: 'KI-Vorschlag bestätigt', icon: Sparkles, tone: 'text-success-600 bg-success-50' },
+  analytics_exported: { label: 'Analytics exportiert', icon: BarChart3, tone: 'text-brand-600 bg-brand-50' },
 };
 
 export function AuditLogPage() {

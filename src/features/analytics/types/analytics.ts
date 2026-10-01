@@ -73,3 +73,28 @@ export interface SupplierAnalyticsRow {
   durchschnittlicheFalldauerStunden: number | null;
   offeneFaelle: number;
 }
+
+/**
+ * Per-instrument (REF/article) analytics (v2.2 Phase 6 - Advanced
+ * Analytics, docs section 10). Grouped by normalized instrument name since
+ * the app has no canonical REF/instrument-master table yet - see
+ * computeInstrumentAnalytics.
+ */
+export interface InstrumentAnalyticsRow {
+  key: string;
+  name: string;
+  /** Total reference quantity across all tray compositions that include this instrument. */
+  vorkommen: number;
+  faelleAnzahl: number;
+  abweichungenAnzahl: number;
+  reparaturenAnzahl: number;
+  /** True if this instrument had 2+ repair reports within the trailing 12 months (see docs section 11). */
+  wiederholungsreparatur: boolean;
+}
+
+/** Eingang->OP->Ausgang lifecycle times (v2.2 Phase 6, docs section 8 "Durchlaufzeiten"). Hours, null = "Keine ausreichenden Daten". */
+export interface LifecycleTimes {
+  eingangZuOpStunden: number | null;
+  opZuAusgangStunden: number | null;
+  eingangZuAusgangStunden: number | null;
+}

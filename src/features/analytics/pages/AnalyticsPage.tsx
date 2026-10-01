@@ -1,15 +1,21 @@
 import { TopBar } from '@/components/layout/TopBar';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { dataProvider } from '@/services';
+import { Download, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { loadAnalyticsData, type AnalyticsData } from '../services/analyticsService';
 import type { AnalyticsFilter, DateRangePreset } from '../types/analytics';
 import {
   computeAbweichungenKpis,
   computeDefektarten,
   computeFaelleKpis,
+  computeInstrumentAnalytics,
   computeLeihsiebeKpis,
+  computeLifecycleTimes,
   computeReparaturKpis,
   computeSupplierAnalytics,
 } from '../utils/analyticsCalculations';
@@ -32,9 +38,10 @@ const PRESETS: DateRangePreset[] = ['today', '7d', '30d', '90d', 'year', 'custom
  * every scoping decision). Never mutates operational data.
  */
 export function AnalyticsPage() {
-  const { profile: me } = useAuth();
+  const { profile: me, performedBy } = useAuth();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [filter, setFilter] = useState<AnalyticsFilter>({
     preset: '30d',
     customRange: { start: null, end: null },
@@ -74,6 +81,64 @@ export function AnalyticsPage() {
     () => (data ? computeSupplierAnalytics(data.suppliers, data.cases, data.trays, filter, now) : []),
     [data, filter, now],
   );
+  const lifecycle = useMemo(() => (data ? computeLifecycleTimes(data.cases, filter, now) : null), [data, filter, now]);
+  const instrumentRows = useMemo(
+    () =>
+      data
+        ? computeInstrumentAnalytics(data.trays, data.trayInstrumentsByTrayId, data.cases, data.repairCases, filter, now)
+        : [],
+    [data, filter, now],
+  );
+
+  const handleExport = async () => {
+    if (!data || !leihsiebe || !faelle || !abweichungen || !reparatur || !lifecycle) return;
+    setError(null);
+    setExporting(true);
+    try {
+      const filterLabel =
+        filter.preset === 'custom'
+          ? `Benutzerdefiniert (${filter.customRange.start?.slice(0, 10) ?? '…'} – ${filter.customRange.end?.slice(0, 10) ?? '…'})`
+          : PRESET_LABEL[filter.preset];
+      // Dynamically imported so the (large) exceljs dependency only loads
+      // when a user actually exports, not on every /analytics page view.
+      const { buildAnalyticsExport } = await import('../utils/analyticsExport');
+      const buffer = await buildAnalyticsExport({
+        filterLabel,
+        leihsiebe,
+        faelle,
+        abweichungen,
+        reparatur,
+        lifecycle,
+        supplierRows,
+        instrumentRows,
+      });
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `IDM_Analytics_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      await dataProvider.appendAuditEntry({
+        id: crypto.randomUUID(),
+        entityType: 'analytics',
+        entityId: crypto.randomUUID(),
+        action: 'analytics_exported',
+        performedBy,
+        details: { filter: filterLabel, supplierId: filter.supplierId },
+        createdAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export fehlgeschlagen.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (!allowed) {
     return (
@@ -189,6 +254,24 @@ export function AnalyticsPage() {
               <Kpi label="Wiederholungen" value={reparatur!.wiederholungsreparaturen} />
             </KpiGroup>
 
+            <KpiGroup title="Durchlaufzeiten">
+              <Kpi label="Eingang → OP" value={formatHours(lifecycle!.eingangZuOpStunden)} />
+              <Kpi label="OP → Ausgang" value={formatHours(lifecycle!.opZuAusgangStunden)} />
+              <Kpi label="Eingang → Ausgang" value={formatHours(lifecycle!.eingangZuAusgangStunden)} />
+            </KpiGroup>
+
+            <Link to="/analytics/instrumente" className="mt-4 block">
+              <Card className="flex items-center gap-3 p-3.5 active:bg-ink-50">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                  <Wrench size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-ink-900">Instrument-Analytics</p>
+                  <p className="text-xs text-ink-500">Vorkommen, Fälle, Abweichungen und Reparaturen je Instrument</p>
+                </div>
+              </Card>
+            </Link>
+
             <h3 className="mb-2 mt-6 text-sm font-semibold uppercase tracking-wide text-ink-500">
               Lieferanten-Analytics
             </h3>
@@ -241,6 +324,18 @@ export function AnalyticsPage() {
                 </ul>
               )}
             </Card>
+
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              icon={<Download size={18} />}
+              className="mt-6"
+              disabled={exporting}
+              onClick={handleExport}
+            >
+              {exporting ? 'Export wird erstellt …' : 'Als Excel exportieren'}
+            </Button>
           </>
         )}
       </div>

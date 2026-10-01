@@ -1,5 +1,5 @@
 import { dataProvider } from '@/services';
-import type { LoanCase, RepairCase, ScanRecord, Supplier, Tray } from '@/types/database';
+import type { LoanCase, RepairCase, ScanRecord, Supplier, Tray, TrayInstrument } from '@/types/database';
 
 export interface AnalyticsData {
   suppliers: Supplier[];
@@ -7,6 +7,8 @@ export interface AnalyticsData {
   cases: LoanCase[];
   scans: ScanRecord[];
   repairCases: RepairCase[];
+  /** All TrayInstrument rows, keyed by trayId - needed for Instrument Analytics (v2.2 Phase 6). */
+  trayInstrumentsByTrayId: Map<string, TrayInstrument[]>;
 }
 
 /**
@@ -25,5 +27,9 @@ export async function loadAnalyticsData(): Promise<AnalyticsData> {
     dataProvider.getScanHistory(),
     dataProvider.getRepairCases(),
   ]);
-  return { suppliers, trays, cases, scans, repairCases };
+
+  const trayInstrumentLists = await Promise.all(trays.map((t) => dataProvider.getTrayInstruments(t.id)));
+  const trayInstrumentsByTrayId = new Map(trays.map((t, i) => [t.id, trayInstrumentLists[i]]));
+
+  return { suppliers, trays, cases, scans, repairCases, trayInstrumentsByTrayId };
 }

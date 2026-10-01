@@ -31,13 +31,32 @@
  *   (aiConfirmation === 'accepted'): an AI suggestion the human corrected,
  *   rejected or redirected to another instrument is explicitly not
  *   authoritative data (see docs section 12/13 and RepairAiSuggestion).
+ * - Instrument Analytics (v2.2 Phase 6, docs section 10) groups by
+ *   normalized instrument name, not REF: the app has no canonical
+ *   instrument-master table yet, only free-text TrayInstrument.name /
+ *   RepairCase.instrumentName. "Vorkommen" is the summed reference
+ *   quantity across tray compositions, not a live scan count.
+ * - Durchlaufzeiten (v2.2 Phase 6, docs section 8): Eingang->OP and
+ *   OP->Ausgang are only computed over cases that have an operationDate -
+ *   never invented. Eingang->Ausgang reuses the same population as
+ *   LeihsiebeKpis.durchschnittlicheVerweildauerStunden.
  */
 
-import type { CaseComparison, LoanCase, RepairCase, ScanRecord, Supplier, Tray } from '@/types/database';
+import type {
+  CaseComparison,
+  LoanCase,
+  RepairCase,
+  ScanRecord,
+  Supplier,
+  Tray,
+  TrayInstrument,
+} from '@/types/database';
 import type {
   AbweichungenKpis,
   AnalyticsFilter,
   DateRange,
+  InstrumentAnalyticsRow,
+  LifecycleTimes,
   DefektartEntry,
   FaelleKpis,
   LeihsiebeKpis,
@@ -272,4 +291,109 @@ export function computeSupplierAnalytics(
       offeneFaelle: supplierCases.filter((c) => c.status === 'outtake_pending').length,
     };
   });
+}
+
+function normalizeInstrumentName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function hasRepeatRepairsWithinWindow(
+  repairs: RepairCase[],
+  now: Date,
+  windowMonths: number = REPEAT_REPAIR_WINDOW_MONTHS,
+): boolean {
+  const windowStart = new Date(now);
+  windowStart.setMonth(windowStart.getMonth() - windowMonths);
+  const range: DateRange = { start: windowStart.toISOString(), end: now.toISOString() };
+  return repairs.filter((r) => isWithinRange(r.createdAt, range)).length >= 2;
+}
+
+export function computeInstrumentAnalytics(
+  trays: Tray[],
+  trayInstrumentsByTrayId: Map<string, TrayInstrument[]>,
+  cases: LoanCase[],
+  repairs: RepairCase[],
+  filter: AnalyticsFilter,
+  now: Date,
+): InstrumentAnalyticsRow[] {
+  const range = resolveDateRange(filter, now);
+  const relevantTrays = trays.filter((t) => matchesSupplier(t.supplierId, filter.supplierId));
+
+  const byKey = new Map<string, { name: string; vorkommen: number; trayIds: Set<string> }>();
+
+  for (const tray of relevantTrays) {
+    for (const instrument of trayInstrumentsByTrayId.get(tray.id) ?? []) {
+      const key = normalizeInstrumentName(instrument.name);
+      const acc = byKey.get(key) ?? { name: instrument.name, vorkommen: 0, trayIds: new Set<string>() };
+      acc.vorkommen += instrument.quantity;
+      acc.trayIds.add(tray.id);
+      byKey.set(key, acc);
+    }
+  }
+
+  const supplierRepairs = repairs.filter((r) => matchesSupplier(r.supplierId, filter.supplierId));
+  for (const r of supplierRepairs) {
+    const key = normalizeInstrumentName(r.instrumentName);
+    if (!byKey.has(key)) byKey.set(key, { name: r.instrumentName, vorkommen: 0, trayIds: new Set<string>() });
+  }
+
+  const casesInRange = cases.filter(
+    (c) => matchesSupplier(c.supplierId, filter.supplierId) && isWithinRange(c.createdAt, range),
+  );
+  const comparedInRange = cases.filter(
+    (c) => matchesSupplier(c.supplierId, filter.supplierId) && c.comparison && isWithinRange(c.comparison.comparedAt, range),
+  );
+
+  const rows: InstrumentAnalyticsRow[] = [];
+  for (const [key, acc] of byKey) {
+    const faelleAnzahl = casesInRange.filter((c) => acc.trayIds.has(c.trayId)).length;
+
+    let abweichungenAnzahl = 0;
+    for (const c of comparedInRange) {
+      abweichungenAnzahl += c.comparison!.instrumentDeltas.filter((d) => normalizeInstrumentName(d.name) === key).length;
+      abweichungenAnzahl += c.comparison!.extraDeltas.filter((d) => normalizeInstrumentName(d.name) === key).length;
+    }
+
+    const instrumentRepairs = supplierRepairs.filter((r) => normalizeInstrumentName(r.instrumentName) === key);
+    const reparaturenAnzahl = instrumentRepairs.filter((r) => isWithinRange(r.createdAt, range)).length;
+
+    rows.push({
+      key,
+      name: acc.name,
+      vorkommen: acc.vorkommen,
+      faelleAnzahl,
+      abweichungenAnzahl,
+      reparaturenAnzahl,
+      wiederholungsreparatur: hasRepeatRepairsWithinWindow(instrumentRepairs, now),
+    });
+  }
+
+  return rows.sort((a, b) => b.vorkommen - a.vorkommen || a.name.localeCompare(b.name));
+}
+
+export function computeLifecycleTimes(cases: LoanCase[], filter: AnalyticsFilter, now: Date): LifecycleTimes {
+  const range = resolveDateRange(filter, now);
+  const comparedInRange = cases.filter(
+    (c) => matchesSupplier(c.supplierId, filter.supplierId) && c.comparison && isWithinRange(c.comparison.comparedAt, range),
+  );
+
+  const eingangZuAusgang = comparedInRange.map((c) => hoursBetween(c.createdAt, c.comparison!.comparedAt));
+
+  // Eingang->OP and OP->Ausgang need a plausible OP-Datum between Eingang and Ausgang -
+  // never invented, and a mis-ordered timestamp is excluded rather than shown as a
+  // misleading negative duration.
+  const withPlausibleOp = comparedInRange.filter(
+    (c) =>
+      c.operationDate &&
+      new Date(c.operationDate).getTime() >= new Date(c.createdAt).getTime() &&
+      new Date(c.operationDate).getTime() <= new Date(c.comparison!.comparedAt).getTime(),
+  );
+  const eingangZuOp = withPlausibleOp.map((c) => hoursBetween(c.createdAt, c.operationDate!));
+  const opZuAusgang = withPlausibleOp.map((c) => hoursBetween(c.operationDate!, c.comparison!.comparedAt));
+
+  return {
+    eingangZuOpStunden: average(eingangZuOp),
+    opZuAusgangStunden: average(opZuAusgang),
+    eingangZuAusgangStunden: average(eingangZuAusgang),
+  };
 }

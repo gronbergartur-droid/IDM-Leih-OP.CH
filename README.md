@@ -22,9 +22,9 @@ durch Menschen) und **IDM Analytics** (read-only KPI-Dashboard) — siehe
 `MASTER-PROMPT-v2.2.md` für die vollständige Spezifikation. Bestehende
 Funktionalität bleibt dabei unverändert.
 
-Stand: Phase 2–5 umgesetzt (Reparaturen-Modul, KI-Fotoanalyse, Foto-Archiv,
-IDM Analytics MVP — siehe die jeweiligen Abschnitte weiter unten). Phase
-6–8 (Advanced Analytics, Cloud-Agent-Analytics mit Freitext-Abfragen,
+Stand: Phase 2–6 umgesetzt (Reparaturen-Modul, KI-Fotoanalyse, Foto-Archiv,
+IDM Analytics MVP, Advanced Analytics — siehe die jeweiligen Abschnitte
+weiter unten). Phase 7–8 (Cloud-Agent-Analytics mit Freitext-Abfragen,
 Production Hardening) sind noch nicht umgesetzt.
 
 ## KI-Nutzung: nur unterstützend
@@ -450,6 +450,28 @@ Durchlaufzeiten (Eingang→OP→Ausgang) und Instrument-Analytics sind laut
 Roadmap explizit erst Phase 6. Nie werden fehlende Zeitstempel erfunden —
 ohne ausreichende Daten wird „N/A“ bzw. „Keine ausreichenden Daten“
 angezeigt.
+
+## Advanced Analytics (v2.2 Phase 6)
+
+Erweitert das Analytics-Dashboard um:
+
+- **Durchlaufzeiten** (Eingang→OP, OP→Ausgang, Eingang→Ausgang) als neue
+  KPI-Gruppe auf `/analytics`. Eingang→OP/OP→Ausgang werden nur berechnet,
+  wenn ein OP-Datum vorliegt **und** zeitlich plausibel zwischen Eingang
+  und Ausgang liegt — sonst „N/A“, nie ein erfundener oder negativer Wert.
+- **Instrument-Analytics** (`/analytics/instrumente`, verlinkt von der
+  Hauptseite): Vorkommen (Summe der Referenzmenge über alle Sieb-Kompositionen),
+  Fälle, Abweichungen, Reparaturen und eine Wiederholungsreparatur-Markierung
+  je Instrument. Da es noch keine REF-Stammdatentabelle gibt, wird nach
+  normalisiertem Instrumentennamen gruppiert (siehe
+  `computeInstrumentAnalytics` in `analyticsCalculations.ts`).
+- **Export**: Button „Als Excel exportieren“ auf `/analytics` lädt eine
+  `.xlsx`-Momentaufnahme (Übersicht, Lieferanten-Analytics,
+  Instrument-Analytics) für den aktuell gewählten Filter herunter —
+  protokolliert im Audit-Log (`analytics_exported`, Migration
+  `0011_analytics_export_audit.sql`). `exceljs` wird dafür per
+  dynamischem Import nachgeladen, damit die Haupt-Bundle-Grösse für alle
+  anderen Seiten unverändert bleibt.
 
 ## OCR offline betreiben
 
