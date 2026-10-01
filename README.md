@@ -22,10 +22,13 @@ durch Menschen) und **IDM Analytics** (read-only KPI-Dashboard) — siehe
 `MASTER-PROMPT-v2.2.md` für die vollständige Spezifikation. Bestehende
 Funktionalität bleibt dabei unverändert.
 
-Stand: Phase 2–7 umgesetzt (Reparaturen-Modul, KI-Fotoanalyse, Foto-Archiv,
-IDM Analytics MVP, Advanced Analytics, Cloud-Agent-Analytics — siehe die
-jeweiligen Abschnitte weiter unten). Phase 8 (Production Hardening) ist
-noch nicht umgesetzt.
+Stand: Phase 2–8 umgesetzt (Reparaturen-Modul, KI-Fotoanalyse, Foto-Archiv,
+IDM Analytics MVP, Advanced Analytics, Cloud-Agent-Analytics,
+Security-/Performance-Hardening — siehe die jeweiligen Abschnitte weiter
+unten). Phase 8 ist als laufender Prozess zu verstehen (Security, Privacy,
+Performance, Audit, Offline-Sync, Spital-Pilot); dieser erste Durchgang
+deckt Security/Privacy ab, Offline-Sync und der eigentliche Spital-Pilot
+sind eigene, noch nicht begonnene Vorhaben.
 
 ## KI-Nutzung: nur unterstützend
 
@@ -495,6 +498,48 @@ werden.“ statt zu raten. Jede Antwort gibt zusätzlich ihre „Basis“ an
 Supabase) ist die Funktion grundsätzlich nicht verfügbar — die App
 behauptet nie, dass eine Cloud-Agent-Antwort vorliegt, ohne echtes
 Backend.
+
+## Production Hardening: Security-/Privacy-Audit (v2.2 Phase 8)
+
+Erster Durchgang der Phase-8-Härtung, basierend auf einem Audit mit
+Supabases eigenen Security-/Performance-Advisors
+(`mcp__Supabase__get_advisors`), umgesetzt in
+`supabase/migrations/0012_security_performance_hardening.sql`:
+
+- **RLS-Initplan-Fix**: Alle RLS-Policies, die `is_active_user()`,
+  `is_admin()`, `current_display_name()` oder `auth.uid()` direkt
+  aufrufen, wurden auf `(select ...)` umgestellt, damit Postgres sie
+  einmal pro Query statt einmal pro Zeile auswertet – reine
+  Performance-Optimierung, keine Verhaltensänderung (betrifft alle
+  9 Tabellen mit RLS, nicht nur die vom Advisor markierte `profiles`-Tabelle).
+- **Least Privilege**: `EXECUTE` auf die fünf `SECURITY DEFINER`-Funktionen
+  (`is_active_user`, `is_admin`, `current_display_name`,
+  `handle_new_auth_user`, `prevent_self_role_escalation`) wurde der
+  `anon`-Rolle entzogen – nicht angemeldete Zugriffe können diese nicht
+  mehr direkt per RPC aufrufen. Die `authenticated`-Rolle behält die
+  Berechtigung bewusst, da RLS-Auswertung und der
+  `prevent_self_role_escalation`-Trigger (läuft bei jedem
+  `profiles`-Update, nicht nur bei Rollenänderungen) sie weiterhin
+  benötigen – verifiziert via `has_function_privilege(...)` nach dem
+  Deployment.
+- **Fehlende Indizes**: `loan_cases.operateur_id` und
+  `scans.operateur_id` hatten keinen Index für ihren Foreign Key.
+
+Bewusst nicht in diesem Durchgang behoben:
+- **„Leaked Password Protection“** ist eine Auth-Service-Einstellung
+  (Supabase Dashboard → Authentication → Policies), keine
+  Datenbank-Migration kann sie setzen – manuell im Dashboard zu
+  aktivieren.
+- **„Unused index“**-Hinweise (13 Indizes) sind bei diesem frühen,
+  noch nicht im Spitalbetrieb laufenden Datenvolumen erwartet und
+  wurden absichtlich nicht entfernt – sie decken bereits bekannte,
+  künftige Abfragemuster ab (Status-/Datums-Filter, Alias-/
+  Fachgebiets-Suche).
+- Geprüft und unauffällig befunden: kein Supabase-Storage-Bucket im
+  Einsatz (Fotos liegen als Data-URLs in Text-Spalten, bereits durch
+  dieselbe Tabellen-RLS geschützt), kein Service-Role-Key im
+  Frontend-Bundle (nur der öffentliche Anon-Key), keine sensiblen Daten
+  in `console.*`-Aufrufen.
 
 ## OCR offline betreiben
 
