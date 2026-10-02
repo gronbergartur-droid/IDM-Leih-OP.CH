@@ -1,0 +1,34 @@
+-- IDM-Leih-OP.CH - correct the privilege model from 0013.
+--
+-- 0013_repair_cases_column_protection.sql tried to close the
+-- confirmed_by/ai_* forgery hole with
+-- `revoke update (ai_suggestion, ai_confirmation, confirmed_by,
+-- confirmed_at) on repair_cases from authenticated`. That had NO EFFECT:
+-- `authenticated` also holds a TABLE-level UPDATE grant on repair_cases
+-- (from 0001_init.sql's original, pre-RLS-hardening grant), and in
+-- Postgres a column-specific REVOKE only removes a privilege that was
+-- itself granted at the column level - it cannot override a privilege
+-- still implied by a broader table-level GRANT. Verified directly against
+-- the live project after applying 0013:
+--
+--   select grantee, privilege_type from information_schema.role_table_grants
+--   where table_name = 'repair_cases' and privilege_type = 'UPDATE';
+--   -- returned BOTH service_role and authenticated, unchanged by 0013.
+--
+-- So the original vulnerability - any active user can PATCH
+-- ai_suggestion/ai_confirmation/confirmed_by/confirmed_at directly via
+-- REST, bypassing confirm-repair-ai and forging a confirmation - was
+-- still live after 0013 "fixed" it.
+--
+-- The only way to actually restrict UPDATE to specific columns is to
+-- remove the table-level grant entirely and grant UPDATE on just the
+-- columns that need it. Checked against the actual app code
+-- (src/services/supabaseProvider.ts): the only direct client UPDATE on
+-- repair_cases is closeRepairCase, writing status/closed_by/closed_at.
+-- Everything else (ai_suggestion, ai_confirmation, confirmed_by,
+-- confirmed_at, and even instrument_name/ref_number on confirmation) goes
+-- through analyze-repair-photo/confirm-repair-ai's service-role client,
+-- which is unaffected by this grant (service_role keeps its own grant).
+
+revoke update on repair_cases from authenticated;
+grant update (status, closed_by, closed_at) on repair_cases to authenticated;
