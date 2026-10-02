@@ -1,71 +1,93 @@
 # idm-ai-agent
 
-Minimal skeleton of the external "IDM AI Agent v1" master prompt
-("Security Hardening + AI Agent Architecture"). This is a deliberately
-scoped slice, not the full spec - see the decision history below before
-extending it.
+Full build of the external "IDM AI Agent v1" master prompt
+("Security Hardening + AI Agent Architecture"), built in two steps: a
+minimal single-call skeleton first, then extended to the architecture
+below once the user explicitly chose that scope over stopping at the
+skeleton. `analyze-repair-photo` remains the simpler, already-reviewed
+default path - this function is opt-in via `VITE_IDM_AI_AGENT_ENABLED`
+(see `.env.example`) and never replaces it.
 
-## What this is
+## Architecture
 
-A drop-in alternative to `analyze-repair-photo` for repair-photo analysis,
-switched on per-deployment via `VITE_IDM_AI_AGENT_ENABLED` (default off;
-see `.env.example`). On top of `analyze-repair-photo`'s existing,
-already-reviewed behaviour, it adds:
+- **Multi-step tool use** (`tools.ts`): the model may call up to 6
+  read-only lookup tools before finalizing its proposal - `find_instrument`,
+  `find_instrument_by_ref`, `find_similar_repair_cases`,
+  `get_repair_history`, `get_tray_composition`, `get_supplier_info`. Every
+  tool runs through the **caller's own forwarded JWT**, never the
+  service-role client, so ordinary RLS (`is_active_user()`) applies
+  exactly as it would to any other read in the app - no tool can see more
+  than the signed-in user already could, and none of them write anything.
+  The orchestration loop in `index.ts` is capped at `MAX_TOOL_ITERATIONS`
+  (4) round-trips so a confused model can't loop indefinitely.
+- **Provider abstraction** (`provider.ts`): `AIProvider` interface with
+  `AnthropicProvider` (default, the one provider actually exercised
+  against this project) and `OpenAIProvider` (selected via the
+  `AI_PROVIDER=openai` secret). **OpenAIProvider has not been
+  independently verified** - there's no `OPENAI_API_KEY` configured in
+  the environment this was built in, so its request/response mapping has
+  only been reviewed by reading, never exercised against a real response.
+  Review it carefully (or just don't set `AI_PROVIDER`) before relying on
+  it.
+- **Prompt-injection mitigation** (`index.ts`, ported from
+  `src/features/repair/aiAgent/promptInjectionGuard.ts`): the defect
+  note - and any other case's defect note a tool result returns - is
+  human-authored free text wrapped in `<user_report>` tags with
+  escaped-looking nested tag attempts neutralized, plus an explicit system
+  prompt instruction never to treat that content as instructions. This is
+  a best-effort mitigation, not a guarantee - see the next point for the
+  actual safety boundary.
+- **Structural safety invariant, enforced in code, not prompt wording**
+  (`validateAgentOutput`, ported from `src/features/repair/aiAgent/
+  validateAgentOutput.ts`): the returned/stored `recommendedAction` is
+  **always** `"HUMAN_REVIEW"`, regardless of what the model actually
+  returned. There is no code path anywhere in this function that branches
+  on `recommendedAction` or on anything else the model says - it can only
+  ever produce a proposal for a human to review via the existing
+  Übernehmen/Korrigieren/Anderes Instrument/Ablehnen flow
+  (`confirm-repair-ai`). If the model is ever steered into returning
+  something other than `"HUMAN_REVIEW"` (a prompt-injection success, in
+  effect), that's recorded as `recommendedActionAnomaly` in the audit log
+  entry rather than silently dropped - a detection signal, never acted on.
+  `defectCandidates` is independently filtered against the same fixed
+  vocabulary the prompt restricts the model to, for the same
+  never-trust-the-model-structurally reason.
+- **Rate limiting** (`isRateLimited`, ported from `src/features/repair/
+  aiAgent/rateLimiter.ts`): a caller is capped at 20 analyses per rolling
+  60 minutes, counted from their own `repair_ai_analyzed` audit_log rows.
 
-- **Prompt-injection protection** (master prompt §9): the human-authored
-  `defect_note` is untrusted free text. It is wrapped in an explicit
-  `<user_report>...</user_report>` block, and the system prompt states
-  outright that this block is never a source of instructions - "ignoriere
-  vorherige Anweisungen" written in a defect note is just defect-note
-  text.
-- **`uncertainties` in the structured output** (master prompt §7/8): short,
-  factual caveats about *this* analysis (e.g. "Etikett teilweise
-  verdeckt"), never a safety/fitness verdict. Additive and optional on
-  `RepairAiSuggestion` (`src/types/database.ts`), so existing rows and the
-  legacy function's output keep working unchanged.
-- There is still no code path here that can set `ai_confirmation` or any
-  other recommendation stronger than "a human should look at this" - see
-  `confirm-repair-ai`, a separate, human-driven function. This function
-  only ever proposes.
+## Why three modules are duplicated between `src/` and here
 
-## What this deliberately is NOT (yet)
+`promptInjectionGuard.ts`, `validateAgentOutput.ts` and `rateLimiter.ts`
+exist twice: as plain, framework-free TypeScript under
+`src/features/repair/aiAgent/` (with vitest tests - this project's
+closest approximation of the master prompt's security test matrix, given
+this environment has no local Deno runtime to test the real Edge Function
+against), and ported verbatim into `index.ts`'s own module scope, since
+Deno Edge Functions can't import from `src/`. Each ported copy says so and
+points back to its source. `tools.ts` has no such pure-logic counterpart -
+it only ever runs here, so there was nothing to extract for vitest
+coverage; its DB-querying logic is reviewed by reading, not tested.
 
-The full spec describes a multi-tool Agent: 7 read-only tools
-(`analyzeRepairPhoto`, `findInstrument`, `findInstrumentByRef`,
-`findSimilarRepairCases`, `getRepairHistory`, `getTrayComposition`,
-`getSupplierInfo`), a `recommendedAction` enum pinned to `HUMAN_REVIEW`, an
-`AIProvider` abstraction over Anthropic/OpenAI, a rate limiter, and an
-18-case security test matrix.
+## Deliberately out of scope
 
-None of that is built here. Reasons, in order:
-
-1. The user was offered four scope options for the spec (RLS fix only /
-   RLS fix + minimal Agent skeleton / full spec as written / report only)
-   and explicitly chose the RLS fix first, then this minimal skeleton as a
-   separate, later step - not the full architecture.
-2. A real multi-tool Agent with provider abstraction, rate limiting and a
-   dedicated security test suite is a large, security-sensitive surface
-   (it would be the thing actually calling an LLM with repository data) to
-   add to a live hospital app that already has two other PRs pending
-   review. Building it in one more unreviewed pass would make review
-   harder, not easier.
-3. Everything this file touches - photo handling, idempotency, the
-   service-role write pattern, CORS, audit logging - is intentionally
-   identical to the already-reviewed `analyze-repair-photo`, so the only
-   genuinely new surface a reviewer has to reason about is the two
-   additions listed above.
-
-If the 7-tool architecture is wanted later, it should be its own
-explicitly-scoped increment (most naturally: one new tool + its own
-security tests at a time), not a retrofit onto this file.
+- A dedicated instrument-master-by-REF catalog: this schema has no such
+  table, so `find_instrument_by_ref` searches historical `repair_cases`
+  instead and says so in its own description/result.
+- Per-tool rate limiting or caching (one limit covers the whole function).
+- Streaming responses.
+- A UI surface for `recommendedActionAnomaly` - it's an audit-log-only
+  signal for now; promoting it to a visible admin alert is a reasonable
+  future increment if it's ever actually triggered.
 
 ## Operating this function
 
-- Requires the `ANTHROPIC_API_KEY` secret (same one `analyze-repair-photo`
-  already uses - nothing new to configure).
-- Deploy it alongside, not instead of, `analyze-repair-photo` - the latter
-  remains the default path.
+- Requires `ANTHROPIC_API_KEY` (same secret `analyze-repair-photo` already
+  uses). `ANTHROPIC_MODEL` is an optional override.
+- To use OpenAI instead, set `AI_PROVIDER=openai` and `OPENAI_API_KEY`
+  (`OPENAI_MODEL` optional, defaults to `gpt-4o`) - see the verification
+  caveat above first.
 - `audit_log` entries use the existing `repair_ai_analyzed` action with
-  `details.via: "idm-ai-agent"` so both paths show up in the same audit
-  trail, distinguishable by that field; no new audit-action enum value was
-  added for this minimal pass.
+  `details: { via: "idm-ai-agent", toolsUsed: [...] , recommendedActionAnomaly?: ... }`
+  so both this function and `analyze-repair-photo` show up in the same
+  audit trail, distinguishable by `via`.
