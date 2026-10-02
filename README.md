@@ -13,14 +13,22 @@ dem Speichern. Beim Eingang eines Leihsiebs wird daraus ein **Sieb-Fall**
 eröffnet; nach der Operation wird ein zweiter (Ausgangs-)Scan erfasst und
 automatisch mit dem Eingang verglichen (Modul „Vorher/Nachher-Vergleich“).
 
-## Roadmap: IDM Intelligence & IDM Analytics (v2.2, noch nicht implementiert)
+## Roadmap: IDM Intelligence & IDM Analytics (v2.2)
 
-Geplante Erweiterung um zwei zusätzliche Module — **IDM Intelligence**
-(assistive KI-Fotoanalyse für Reparaturen/Instrumente, immer mit
-Pflichtbestätigung durch Menschen) und **IDM Analytics** (read-only
-KPI-Dashboard) — siehe [`docs/roadmap/v2.2/`](docs/roadmap/v2.2/README.md),
-insbesondere `MASTER-PROMPT-v2.2.md` für die vollständige Spezifikation.
-Noch nicht umgesetzt; bestehende Funktionalität bleibt dabei unverändert.
+Erweiterung um zwei zusätzliche Module — **IDM Intelligence** (assistive
+KI-Fotoanalyse für Reparaturen/Instrumente, immer mit Pflichtbestätigung
+durch Menschen) und **IDM Analytics** (read-only KPI-Dashboard) — siehe
+[`docs/roadmap/v2.2/`](docs/roadmap/v2.2/README.md), insbesondere
+`MASTER-PROMPT-v2.2.md` für die vollständige Spezifikation. Bestehende
+Funktionalität bleibt dabei unverändert.
+
+Stand: Phase 2–8 umgesetzt (Reparaturen-Modul, KI-Fotoanalyse, Foto-Archiv,
+IDM Analytics MVP, Advanced Analytics, Cloud-Agent-Analytics,
+Security-/Performance-Hardening — siehe die jeweiligen Abschnitte weiter
+unten). Phase 8 ist als laufender Prozess zu verstehen (Security, Privacy,
+Performance, Audit, Offline-Sync, Spital-Pilot); dieser erste Durchgang
+deckt Security/Privacy ab, Offline-Sync und der eigentliche Spital-Pilot
+sind eigene, noch nicht begonnene Vorhaben.
 
 ## KI-Nutzung: nur unterstützend
 
@@ -391,6 +399,218 @@ diesen direkt auf der Reparatur-Detailseite an. Im lokalen Mock-Modus (ohne
 Supabase) ist die KI-Analyse grundsätzlich nicht verfügbar – die App
 behauptet nie, dass eine Cloud-Analyse stattgefunden hat, ohne echtes
 Backend.
+
+## Foto-Archiv & Ähnlichkeitssuche (v2.2 Phase 4 – Photo Archive)
+
+Beim Melden einer Reparatur wird aus dem Übersichtsfoto ein **perceptual
+difference-hash (dHash)** berechnet (`src/features/repair/imageHash.ts`) –
+rein client-seitig, deterministisch, ohne zusätzliche KI-Kosten oder
+Netzwerkaufruf. Auf der Reparatur-Detailseite werden damit frühere Meldungen
+mit ähnlichem Foto gefunden (Hamming-Distanz zwischen den Hashes, Schwelle
+`SIMILARITY_MATCH_THRESHOLD`) und als Karte **„Ähnliche frühere Meldungen“**
+mit Ähnlichkeits-Prozentwert verlinkt. Wie jeder KI/Heuristik-Vorschlag im
+Haus ist das ein reiner Hinweis für das Fachpersonal, kein automatischer
+Abgleich oder eine Identitätsaussage – zwei Fotos ähnlicher Instrumente
+können ähnliche Hashes ergeben, ohne dasselbe Instrument zu sein.
+
+Eine echte Vektor-/Embedding-Ähnlichkeitssuche (semantische Bildsuche statt
+reiner Pixel-Struktur) ist im Master-Prompt explizit als **optionale**
+Erweiterung markiert und hier bewusst nicht umgesetzt; der dHash-Ansatz
+deckt den Kernfall (wiederkehrender Defekt am selben/sehr ähnlichen
+Instrument erkennen) ohne zusätzliche Infrastruktur oder Kosten ab.
+
+## IDM Analytics (v2.2 Phase 5 – Analytics MVP)
+
+Read-only KPI-Dashboard unter `/analytics` (Dashboard-Kachel „Analytics“,
+sichtbar für Admin/OP-Leitung sowie im lokalen Demo-Modus; siehe
+[`docs/roadmap/v2.2/MASTER-PROMPT-v2.2.md`](docs/roadmap/v2.2/MASTER-PROMPT-v2.2.md)
+Abschnitt 8/9/11/12). Nutzt ausschliesslich bestehende `dataProvider`-Getter
+(keine neuen Tabellen/Migrationen) und berechnet alle Kennzahlen client-seitig
+in reinen, unabhängig getesteten Funktionen
+(`src/features/analytics/utils/analyticsCalculations.ts`):
+
+- **Filter**: Zeitraum (Heute/7/30/90 Tage/Dieses Jahr/Benutzerdefiniert) und
+  Lieferant.
+- **KPI-Gruppen**: Leihsiebe (aktive Siebe, Eingänge, Ausgänge, offene Fälle,
+  Einsätze, Ø Verweildauer), Fälle (feste Heute/7/30-Tage-Fenster,
+  unabhängig vom gewählten Zeitraum), Abweichungen (Gesamt sowie fehlende/
+  zusätzliche/falsche Instrumente, Mengenabweichungen, nicht erkannt) und
+  Reparatur (Fälle, offen/abgeschlossen, Wiederholungsreparaturen nach
+  12-Monats-Fenster).
+- **Lieferanten-Analytics**-Tabelle mit reinen Zahlen je Lieferant (Siebe,
+  Fälle, Abweichungen, offene Fälle) — bewusst ohne automatische
+  Gut/Schlecht-Bewertung.
+- **Defektarten**-Übersicht ausschliesslich aus **bestätigten**
+  KI-Vorschlägen (`aiConfirmation === 'accepted'`); eine korrigierte,
+  abgelehnte oder umgeleitete KI-Angabe fliesst nicht ein.
+
+Bewusste Vereinfachungen für die MVP-Phase (dokumentiert direkt im Code):
+„offene" Kennzahlen sind immer ein aktueller Status-Snapshot statt
+zeitraum-gefiltert; „nicht erkannt" bildet auf nicht zugeordnete
+Scan-Ergebnisse ab, da der Soll/Ist-Vergleich keine eigene
+„nicht erkannt"-Kategorie pro Instrument kennt; detaillierte
+Durchlaufzeiten (Eingang→OP→Ausgang) und Instrument-Analytics sind laut
+Roadmap explizit erst Phase 6. Nie werden fehlende Zeitstempel erfunden —
+ohne ausreichende Daten wird „N/A“ bzw. „Keine ausreichenden Daten“
+angezeigt.
+
+## Advanced Analytics (v2.2 Phase 6)
+
+Erweitert das Analytics-Dashboard um:
+
+- **Durchlaufzeiten** (Eingang→OP, OP→Ausgang, Eingang→Ausgang) als neue
+  KPI-Gruppe auf `/analytics`. Eingang→OP/OP→Ausgang werden nur berechnet,
+  wenn ein OP-Datum vorliegt **und** zeitlich plausibel zwischen Eingang
+  und Ausgang liegt — sonst „N/A“, nie ein erfundener oder negativer Wert.
+- **Instrument-Analytics** (`/analytics/instrumente`, verlinkt von der
+  Hauptseite): Vorkommen (Summe der Referenzmenge über alle Sieb-Kompositionen),
+  Fälle, Abweichungen, Reparaturen und eine Wiederholungsreparatur-Markierung
+  je Instrument. Da es noch keine REF-Stammdatentabelle gibt, wird nach
+  normalisiertem Instrumentennamen gruppiert (siehe
+  `computeInstrumentAnalytics` in `analyticsCalculations.ts`).
+- **Export**: Button „Als Excel exportieren“ auf `/analytics` lädt eine
+  `.xlsx`-Momentaufnahme (Übersicht, Lieferanten-Analytics,
+  Instrument-Analytics) für den aktuell gewählten Filter herunter —
+  protokolliert im Audit-Log (`analytics_exported`, Migration
+  `0011_analytics_export_audit.sql`). `exceljs` wird dafür per
+  dynamischem Import nachgeladen, damit die Haupt-Bundle-Grösse für alle
+  anderen Seiten unverändert bleibt.
+
+## Cloud Agent Analytics (v2.2 Phase 7)
+
+Freitext-Fragen-Feld „Frage an die Daten (Cloud Agent)" auf `/analytics`
+(ruft die Supabase Edge Function `supabase/functions/analytics-query` auf,
+nutzt denselben `ANTHROPIC_API_KEY` wie Phase 3 — kein zusätzliches Secret
+nötig). Beispiele: „Wie viele Fälle hatten Abweichungen?“, „Welches
+Instrument hat am meisten Reparaturen?“.
+
+Sicherheitsdesign (siehe `docs/roadmap/v2.2/MASTER-PROMPT-v2.2.md`
+Abschnitt 13 „Every numeric answer must be traceable“): die KI bekommt
+**niemals** rohe Fall-/Scan-/Reparaturdaten, sondern ausschliesslich den
+bereits berechneten, bereits aggregierten KPI-„Snapshot“, den die Seite
+selbst anzeigt (`AnalyticsSnapshot` — dieselben Zahlen aus
+`analyticsCalculations.ts`, inkl. Zeitraum/Lieferanten-Filter). Die KI
+kann also nur Zahlen zitieren, die bereits existieren, nie neue
+berechnen oder schätzen; bei nicht beantwortbaren Fragen antwortet sie
+explizit „Diese Frage kann anhand der verfügbaren Daten nicht beantwortet
+werden.“ statt zu raten. Jede Antwort gibt zusätzlich ihre „Basis“ an
+(welche Snapshot-Felder verwendet wurden). Im lokalen Demo-Modus (ohne
+Supabase) ist die Funktion grundsätzlich nicht verfügbar — die App
+behauptet nie, dass eine Cloud-Agent-Antwort vorliegt, ohne echtes
+Backend.
+
+## Repair-AI-Bestätigung: Server-seitiger Schutz
+
+Ein externes Security-Review (IDM AI Agent Master Prompt) deckte eine
+reale Lücke auf: die RLS-Policy `Active users update repair_cases`
+(`for update using (is_active_user())`) schränkt nur ein, welche **Zeilen**
+eine aktive Person ändern darf, nicht welche **Spalten**. Jede aktive
+Person konnte daher `ai_suggestion`, `ai_confirmation`, `confirmed_by`
+und `confirmed_at` direkt per REST-`PATCH` setzen — unter Umgehung von
+`resolveAiConfirmation()`, inklusive Vortäuschen einer fremden
+Bestätigung (`confirmed_by` wurde nie gegen die eigene Identität
+geprüft).
+
+Behoben in zwei Teilen:
+
+- **`supabase/migrations/0013_repair_cases_column_protection.sql`**:
+  entzieht `authenticated` das `UPDATE`-Recht auf genau diese vier
+  Spalten (`revoke update (...) on repair_cases from authenticated`).
+  Bewusst nicht angefasst: `status`/`closed_by`/`closed_at` (separater,
+  nicht gemeldeter Befund, eigener künftiger Durchgang).
+- **`supabase/functions/confirm-repair-ai`** (neu) ist ab jetzt der
+  einzige Weg, diese Spalten zu schreiben: prüft JWT + aktive Person,
+  lädt den Fall über den eigenen (RLS-geprüften) Client der Person,
+  berechnet `instrument_name`/`ref_number` serverseitig (Logik 1:1
+  portiert aus `resolveAiConfirmation.ts`), lehnt eine zweite
+  Bestätigung desselben Vorschlags ab (409) und schreibt erst dann über
+  den Service-Role-Key — `confirmed_by` kommt dabei **immer** aus dem
+  eigenen Profil der Person, nie vom Client. `analyze-repair-photo`
+  wurde identisch umgestellt: schreibt `ai_suggestion` jetzt ebenfalls
+  über den Service-Role-Key, nach denselben Identitäts-/Aktiv-Prüfungen
+  wie zuvor — von aussen unverändertes Verhalten, nur die
+  Schreibberechtigung ist jetzt eng genug.
+
+**Deployment-Reihenfolge ist hier wichtig** (anders als bei allen
+anderen Migrationen dieser Session): Die Migration entzieht einer
+Direkt-Schreibung ein Recht, von dem das **aktuell live laufende**
+Frontend (noch auf `main`, ohne diese Änderung) für die Bestätigung
+abhängt. Deshalb:
+
+1. Beide Edge Functions sind bereits live deployed (reiner Zugewinn,
+   funktioniert unabhängig vom Migrationsstatus, da Service-Role immer
+   schreiben darf).
+2. Die Migration selbst wurde **bewusst noch nicht** auf das Live-Projekt
+   angewendet — erst nachdem dieser PR gemerged und das Frontend
+   (welches jetzt `confirm-repair-ai` statt der Direkt-Schreibung
+   aufruft) tatsächlich neu deployed ist, darf sie angewendet werden.
+   Vorher würde sie die Bestätigungs-Buttons (Übernehmen/Korrigieren/
+   Anderes Instrument/Ablehnen) im Live-Betrieb sofort brechen.
+
+## Production Hardening: Security-/Privacy-Audit (v2.2 Phase 8)
+
+Erster Durchgang der Phase-8-Härtung, basierend auf einem Audit mit
+Supabases eigenen Security-/Performance-Advisors
+(`mcp__Supabase__get_advisors`), umgesetzt in
+`supabase/migrations/0012_security_performance_hardening.sql`:
+
+- **RLS-Initplan-Fix**: Alle RLS-Policies, die `is_active_user()`,
+  `is_admin()`, `current_display_name()` oder `auth.uid()` direkt
+  aufrufen, wurden auf `(select ...)` umgestellt, damit Postgres sie
+  einmal pro Query statt einmal pro Zeile auswertet – reine
+  Performance-Optimierung, keine Verhaltensänderung (betrifft alle
+  9 Tabellen mit RLS, nicht nur die vom Advisor markierte `profiles`-Tabelle).
+- **Least Privilege**: `EXECUTE` auf die fünf `SECURITY DEFINER`-Funktionen
+  (`is_active_user`, `is_admin`, `current_display_name`,
+  `handle_new_auth_user`, `prevent_self_role_escalation`) wurde der
+  `anon`-Rolle entzogen – nicht angemeldete Zugriffe können diese nicht
+  mehr direkt per RPC aufrufen. Die `authenticated`-Rolle behält die
+  Berechtigung bewusst, da RLS-Auswertung und der
+  `prevent_self_role_escalation`-Trigger (läuft bei jedem
+  `profiles`-Update, nicht nur bei Rollenänderungen) sie weiterhin
+  benötigen – verifiziert via `has_function_privilege(...)` nach dem
+  Deployment.
+- **Fehlende Indizes**: `loan_cases.operateur_id` und
+  `scans.operateur_id` hatten keinen Index für ihren Foreign Key.
+
+Bewusst nicht in diesem Durchgang behoben:
+- **„Leaked Password Protection“** ist eine Auth-Service-Einstellung
+  (Supabase Dashboard → Authentication → Policies), keine
+  Datenbank-Migration kann sie setzen – manuell im Dashboard zu
+  aktivieren.
+- **„Unused index“**-Hinweise (13 Indizes) sind bei diesem frühen,
+  noch nicht im Spitalbetrieb laufenden Datenvolumen erwartet und
+  wurden absichtlich nicht entfernt – sie decken bereits bekannte,
+  künftige Abfragemuster ab (Status-/Datums-Filter, Alias-/
+  Fachgebiets-Suche).
+- Geprüft und unauffällig befunden: kein Supabase-Storage-Bucket im
+  Einsatz (Fotos liegen als Data-URLs in Text-Spalten, bereits durch
+  dieselbe Tabellen-RLS geschützt), kein Service-Role-Key im
+  Frontend-Bundle (nur der öffentliche Anon-Key), keine sensiblen Daten
+  in `console.*`-Aufrufen.
+
+### Zweiter Durchgang: Anwendungs-Performance
+
+- **N+1-Abfrage behoben**: `/analytics` lud bisher die Instrumente jedes
+  Siebs einzeln (`getTrayInstruments(trayId)` einmal pro Sieb parallel,
+  also N Requests für N Siebe). Neue `DataProvider`-Methode
+  `getAllTrayInstruments()` lädt alle Sieb-Instrumente in einem einzigen
+  Request; `analyticsService.ts` gruppiert sie clientseitig nach
+  Sieb-ID. Reiner Laufzeitgewinn, insbesondere relevant, sobald der
+  Sieb-Katalog im Spitalbetrieb wächst.
+- **Lazy-Loading erweitert**: `/analytics`, `/analytics/instrumente` und
+  `/benutzer` (alle drei Admin-/OP-Leitung-only) werden jetzt wie
+  Scanner/SET-Scanner/Archiv per `React.lazy()` nachgeladen statt im
+  initialen Bundle enthalten zu sein. Gemessener Effekt ist bewusst
+  ehrlich benannt: da React Router ohne explizites `lazy()` keine
+  automatische Code-Teilung pro Route vornimmt, bleiben ca. 20 weitere,
+  seltener besuchte CRUD-/Detail-Routen (Lieferanten, Siebe, Ärzte,
+  Fälle, Reparaturen, Historie, Audit …) weiterhin Teil des initialen
+  Bundles; die tatsächliche Einsparung am Erstladevolumen durch diesen
+  Schritt liegt bei nur ca. 3–4 KB (gzip). Eine vollständige
+  routenweise Code-Teilung über alle übrigen Screens wäre ein deutlich
+  grösserer, eigener Umbau mit entsprechendem Testaufwand und ist
+  bewusst nicht Teil dieses Durchgangs.
 
 ## OCR offline betreiben
 

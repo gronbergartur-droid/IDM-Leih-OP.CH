@@ -17,8 +17,12 @@
 // stored result is returned as-is rather than calling the model again
 // (acceptance test "duplicate processing of the same image is idempotent").
 //
-// Runs with the caller's own JWT forwarded (not the service role), so RLS
-// still applies exactly as it would through the REST API directly.
+// Runs with the caller's own JWT forwarded for everything except the final
+// write: supabase/migrations/0013_repair_cases_column_protection.sql
+// revokes UPDATE on ai_suggestion (and the human-confirmation columns)
+// from `authenticated`, so a direct client PATCH can no longer forge an
+// AI suggestion - this function writes it via the service-role key
+// instead, only after the same identity/active-user checks as before.
 //
 // Requires the ANTHROPIC_API_KEY secret (Supabase Dashboard -> Edge
 // Functions -> Secrets). ANTHROPIC_MODEL is optional and defaults to
@@ -31,6 +35,7 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const VISIBLE_DEFECT_CANDIDATES = [
   "sichtbare Deformation",
@@ -213,7 +218,8 @@ Deno.serve(async (req) => {
     analyzedAt: now,
   };
 
-  const { data: updated, error: updateError } = await supabase
+  const privileged = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: updated, error: updateError } = await privileged
     .from("repair_cases")
     .update({ ai_suggestion: aiSuggestion })
     .eq("id", repairCaseId)

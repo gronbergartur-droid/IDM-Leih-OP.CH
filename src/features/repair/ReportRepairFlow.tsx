@@ -8,6 +8,7 @@ import { Camera, CheckCircle2, SkipForward, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CameraCapture } from '../scanner/CameraCapture';
+import { computeDHash } from './imageHash';
 
 type Step = 'photo-overview' | 'photo-defect' | 'photo-ref' | 'details' | 'done';
 
@@ -52,6 +53,7 @@ export function ReportRepairFlow() {
     setSaving(true);
     try {
       const tray = trays.find((t) => t.id === trayId) ?? null;
+      const photoHash = await computeDHash(overviewPhoto).catch(() => null);
       const repairCase = await dataProvider.createRepairCase({
         trayId: tray?.id ?? null,
         supplierId: tray?.supplierId ?? null,
@@ -59,6 +61,7 @@ export function ReportRepairFlow() {
         overviewPhotoUrl: overviewPhoto,
         defectPhotoUrl: defectPhoto,
         refPhotoUrl: refPhoto,
+        photoHash,
         defectNote: defectNote.trim(),
         performedBy,
       });

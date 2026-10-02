@@ -1,4 +1,4 @@
-import { resolveAiConfirmation } from '@/features/repair/resolveAiConfirmation';
+import type { AnalyticsAnswer, AnalyticsSnapshot } from '@/features/analytics/types/analytics';
 import { supabase } from '@/lib/supabase/client';
 import type {
   AiConfirmationAction,
@@ -165,6 +165,12 @@ export class SupabaseDataProvider implements DataProvider {
       .select('*')
       .eq('tray_id', trayId)
       .order('position');
+    if (error) throw error;
+    return (data ?? []).map(mapInstrumentRow);
+  }
+
+  async getAllTrayInstruments(): Promise<TrayInstrument[]> {
+    const { data, error } = await this.client.from('tray_instruments').select('*').order('position');
     if (error) throw error;
     return (data ?? []).map(mapInstrumentRow);
   }
@@ -357,6 +363,7 @@ export class SupabaseDataProvider implements DataProvider {
         overview_photo_url: input.overviewPhotoUrl,
         defect_photo_url: input.defectPhotoUrl,
         ref_photo_url: input.refPhotoUrl,
+        photo_hash: input.photoHash,
         defect_note: input.defectNote,
         performed_by: input.performedBy,
       })
@@ -393,7 +400,14 @@ export class SupabaseDataProvider implements DataProvider {
   }
 
   async analyzeRepairCase(id: string): Promise<RepairCase> {
-    const { data, error } = await this.client.functions.invoke('analyze-repair-photo', {
+    // VITE_IDM_AI_AGENT_ENABLED (default off) switches to the idm-ai-agent
+    // Edge Function - a minimal skeleton of the external "IDM AI Agent v1"
+    // spec (prompt-injection-hardened, adds an "uncertainties" field) - see
+    // supabase/functions/idm-ai-agent/README.md. analyze-repair-photo stays
+    // the default/fallback path and is otherwise untouched, so this ships
+    // inert until explicitly turned on.
+    const functionName = import.meta.env.VITE_IDM_AI_AGENT_ENABLED === 'true' ? 'idm-ai-agent' : 'analyze-repair-photo';
+    const { data, error } = await this.client.functions.invoke(functionName, {
       body: { repairCaseId: id },
     });
     if (error) {
@@ -408,25 +422,33 @@ export class SupabaseDataProvider implements DataProvider {
     id: string,
     action: AiConfirmationAction,
     override: { instrumentName?: string; refNumber?: string } | null,
-    confirmedBy: string,
+    _confirmedBy: string,
   ): Promise<RepairCase> {
-    const existing = await this.getRepairCase(id);
-    if (!existing) throw new Error('Reparatur nicht gefunden.');
-    const resolved = resolveAiConfirmation(existing, existing.aiSuggestion, action, override ?? null);
-    const { data, error } = await this.client
-      .from('repair_cases')
-      .update({
-        instrument_name: resolved.instrumentName,
-        ref_number: resolved.refNumber,
-        ai_confirmation: action,
-        confirmed_by: confirmedBy,
-        confirmed_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select('*')
-      .single();
-    if (error) throw error;
+    // Runs through the confirm-repair-ai Edge Function, not a direct table
+    // update: repair_cases.ai_confirmation/confirmed_by/confirmed_at (and
+    // ai_suggestion) are no longer authenticated-writable (see
+    // supabase/migrations/0013_repair_cases_column_protection.sql) -
+    // confirmed_by is always derived server-side from the caller's own
+    // profile, never trusted from the client, so _confirmedBy is unused here.
+    const { data, error } = await this.client.functions.invoke('confirm-repair-ai', {
+      body: { repairCaseId: id, action, override },
+    });
+    if (error) {
+      const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(detail?.error ?? error.message);
+    }
     return mapRepairCaseRow(data);
+  }
+
+  async askAnalyticsQuestion(question: string, snapshot: AnalyticsSnapshot): Promise<AnalyticsAnswer> {
+    const { data, error } = await this.client.functions.invoke('analytics-query', {
+      body: { question, snapshot },
+    });
+    if (error) {
+      const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(detail?.error ?? error.message);
+    }
+    return data;
   }
 
   // ---------------------------------------------------------------------
@@ -688,6 +710,7 @@ function mapRepairCaseRow(row: any): RepairCase {
     overviewPhotoUrl: row.overview_photo_url,
     defectPhotoUrl: row.defect_photo_url,
     refPhotoUrl: row.ref_photo_url,
+    photoHash: row.photo_hash,
     defectNote: row.defect_note,
     status: row.status,
     performedBy: row.performed_by,

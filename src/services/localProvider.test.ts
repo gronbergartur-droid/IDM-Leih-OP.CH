@@ -197,6 +197,7 @@ describe('LocalDataProvider - Reparatur (v2.2 Phase 2) regression', () => {
       overviewPhotoUrl: 'data:image/jpeg;base64,overview',
       defectPhotoUrl: null,
       refPhotoUrl: null,
+      photoHash: null,
       defectNote: 'Spitze verbogen',
       performedBy: 'Tester',
     });
@@ -220,6 +221,7 @@ describe('LocalDataProvider - Reparatur (v2.2 Phase 2) regression', () => {
       overviewPhotoUrl: 'data:image/jpeg;base64,overview',
       defectPhotoUrl: null,
       refPhotoUrl: null,
+      photoHash: null,
       defectNote: 'Unbekannte Herkunft, Griff gebrochen',
       performedBy: 'Tester',
     });
@@ -241,6 +243,7 @@ describe('LocalDataProvider - Reparatur (v2.2 Phase 2) regression', () => {
       overviewPhotoUrl: 'data:image/jpeg;base64,overview',
       defectPhotoUrl: null,
       refPhotoUrl: null,
+      photoHash: null,
       defectNote: 'Test',
       performedBy: 'Tester',
     });
@@ -256,6 +259,7 @@ describe('LocalDataProvider - Reparatur (v2.2 Phase 2) regression', () => {
       overviewPhotoUrl: 'data:image/jpeg;base64,overview',
       defectPhotoUrl: null,
       refPhotoUrl: null,
+      photoHash: null,
       defectNote: 'Test',
       performedBy: 'Tester',
     });
@@ -282,6 +286,7 @@ describe('LocalDataProvider - Reparatur (v2.2 Phase 2) regression', () => {
       overviewPhotoUrl: 'data:image/jpeg;base64,overview',
       defectPhotoUrl: null,
       refPhotoUrl: null,
+      photoHash: null,
       defectNote: 'Test',
       performedBy: 'Tester',
     });

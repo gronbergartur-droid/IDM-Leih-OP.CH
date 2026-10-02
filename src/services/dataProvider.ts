@@ -1,3 +1,4 @@
+import type { AnalyticsAnswer, AnalyticsSnapshot } from '@/features/analytics/types/analytics';
 import type {
   AiConfirmationAction,
   AuditLogEntry,
@@ -42,6 +43,8 @@ export interface DataProvider {
   /** Resolve a tray by its primary code or any of its known aliases (case-insensitive). */
   findTrayByIdentifier(identifier: string): Promise<Tray | null>;
   getTrayInstruments(trayId: string): Promise<TrayInstrument[]>;
+  /** Every TrayInstrument row across every tray, in one call - for aggregations (e.g. Instrument-Analytics) that would otherwise need one request per tray. */
+  getAllTrayInstruments(): Promise<TrayInstrument[]>;
   createTray(input: TrayInput): Promise<Tray>;
   updateTray(id: string, input: TrayInput): Promise<Tray>;
 
@@ -99,6 +102,16 @@ export interface DataProvider {
     override: { instrumentName?: string; refNumber?: string } | null,
     confirmedBy: string,
   ): Promise<RepairCase>;
+
+  /**
+   * Cloud Agent Analytics (v2.2 Phase 7): answers a natural-language
+   * question using ONLY the already-computed, already-aggregated KPI
+   * numbers in `snapshot` (never raw case/scan/repair records - see
+   * AnalyticsSnapshot). Not available in local/demo mode (throws) - the
+   * app must not pretend a Cloud Agent answer exists without a real
+   * backend.
+   */
+  askAnalyticsQuestion(question: string, snapshot: AnalyticsSnapshot): Promise<AnalyticsAnswer>;
 
   /** The authenticated caller's own profile (role, active status), or null if not signed in / not provisioned yet. */
   getCurrentProfile(): Promise<UserProfile | null>;

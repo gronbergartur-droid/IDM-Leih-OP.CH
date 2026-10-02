@@ -1,5 +1,6 @@
 import { physicians, suppliers, trayInstruments, trays } from '@/data/referenceData';
 import { getCurrentUser, setCurrentUser } from '@/lib/currentUser';
+import type { AnalyticsAnswer, AnalyticsSnapshot } from '@/features/analytics/types/analytics';
 import { resolveAiConfirmation } from '@/features/repair/resolveAiConfirmation';
 import type {
   AiConfirmationAction,
@@ -179,6 +180,10 @@ export class LocalDataProvider implements DataProvider {
     return this.trayInstruments
       .filter((instrument) => instrument.trayId === trayId)
       .sort((a, b) => a.position - b.position);
+  }
+
+  async getAllTrayInstruments(): Promise<TrayInstrument[]> {
+    return [...this.trayInstruments].sort((a, b) => a.position - b.position);
   }
 
   async createTray(input: TrayInput): Promise<Tray> {
@@ -373,6 +378,7 @@ export class LocalDataProvider implements DataProvider {
       overviewPhotoUrl: input.overviewPhotoUrl,
       defectPhotoUrl: input.defectPhotoUrl,
       refPhotoUrl: input.refPhotoUrl,
+      photoHash: input.photoHash,
       defectNote: input.defectNote,
       status: 'open',
       performedBy: input.performedBy,
@@ -432,6 +438,12 @@ export class LocalDataProvider implements DataProvider {
     this.repairCases = this.repairCases.map((r) => (r.id === id ? updated : r));
     writeToStorage(REPAIR_CASES_KEY, this.repairCases);
     return updated;
+  }
+
+  async askAnalyticsQuestion(_question: string, _snapshot: AnalyticsSnapshot): Promise<AnalyticsAnswer> {
+    // No server/model to call in local/demo mode - never pretend a Cloud
+    // Agent answer exists without a real backend (see docs/roadmap/v2.2).
+    throw new Error('Cloud-Agent-Abfragen sind nur mit verbundenem Supabase-Projekt verfügbar.');
   }
 
   // ---------------------------------------------------------------------

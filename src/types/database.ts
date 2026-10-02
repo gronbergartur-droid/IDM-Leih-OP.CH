@@ -177,11 +177,12 @@ export type AuditAction =
   | 'repair_reported'
   | 'repair_closed'
   | 'repair_ai_analyzed'
-  | 'repair_ai_confirmed';
+  | 'repair_ai_confirmed'
+  | 'analytics_exported';
 
 export interface AuditLogEntry {
   id: UUID;
-  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician' | 'repair';
+  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician' | 'repair' | 'analytics';
   entityId: UUID;
   action: AuditAction;
   performedBy: string;
@@ -295,6 +296,8 @@ export interface RepairAiSuggestion {
   /** 0-100. UX-only thresholds (see confidenceTier) - never a medical/operational certainty. */
   confidence: number;
   evidence: string[];
+  /** Short, factual caveats about this specific analysis (e.g. "Etikett teilweise verdeckt") - never a safety/fitness verdict. Optional: absent on suggestions produced before this field existed. */
+  uncertainties?: string[];
   model: string;
   analyzedAt: ISODateString;
 }
@@ -318,6 +321,8 @@ export interface RepairCase {
   overviewPhotoUrl: string;
   defectPhotoUrl: string | null;
   refPhotoUrl: string | null;
+  /** Perceptual difference-hash (dHash) of overviewPhotoUrl, for archive similarity search (v2.2 Phase 4) - see features/repair/imageHash.ts. */
+  photoHash: string | null;
   defectNote: string;
   status: RepairStatus;
   performedBy: string;
@@ -339,6 +344,7 @@ export interface RepairCaseInput {
   overviewPhotoUrl: string;
   defectPhotoUrl: string | null;
   refPhotoUrl: string | null;
+  photoHash: string | null;
   defectNote: string;
   performedBy: string;
 }

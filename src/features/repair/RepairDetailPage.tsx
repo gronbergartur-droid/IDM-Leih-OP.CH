@@ -3,12 +3,14 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { dataProvider } from '@/services';
 import type { AiConfirmationAction, RepairCase, Tray } from '@/types/database';
 import { CheckCircle2, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { CONFIDENCE_TIER_LABEL, confidenceTier } from './aiConfidence';
+import { SIMILARITY_MATCH_THRESHOLD, hammingDistance, similarityPercent } from './imageHash';
 
 const AI_ACTION_LABEL: Record<AiConfirmationAction, string> = {
   accepted: 'übernommen',
@@ -22,6 +24,7 @@ export function RepairDetailPage() {
   const { performedBy } = useAuth();
   const [repair, setRepair] = useState<RepairCase | null | undefined>(undefined);
   const [tray, setTray] = useState<Tray | null>(null);
+  const [similarCases, setSimilarCases] = useState<Array<{ repairCase: RepairCase; similarity: number }>>([]);
   const [closing, setClosing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -37,6 +40,17 @@ export function RepairDetailPage() {
     if (found?.trayId) {
       const trays = await dataProvider.getTrays();
       setTray(trays.find((t) => t.id === found.trayId) ?? null);
+    }
+    if (found?.photoHash) {
+      const all = await dataProvider.getRepairCases();
+      const matches = all
+        .filter((c) => c.id !== found.id && c.photoHash)
+        .map((c) => ({ repairCase: c, similarity: similarityPercent(found.photoHash!, c.photoHash!) }))
+        .filter((m) => hammingDistance(found.photoHash!, m.repairCase.photoHash!) <= SIMILARITY_MATCH_THRESHOLD)
+        .sort((a, b) => b.similarity - a.similarity);
+      setSimilarCases(matches);
+    } else {
+      setSimilarCases([]);
     }
   }, [repairId]);
 
@@ -105,15 +119,20 @@ export function RepairDetailPage() {
     setConfirming(true);
     try {
       await dataProvider.confirmRepairAiSuggestion(repairId, action, override, performedBy);
-      await dataProvider.appendAuditEntry({
-        id: crypto.randomUUID(),
-        entityType: 'repair',
-        entityId: repairId,
-        action: 'repair_ai_confirmed',
-        performedBy,
-        details: { decision: action },
-        createdAt: new Date().toISOString(),
-      });
+      // Against Supabase, confirm-repair-ai logs repair_ai_confirmed itself
+      // server-side (so it can't be skipped/forged) - only local/demo mode,
+      // which has no server to do that, needs the client to log it here.
+      if (!isSupabaseConfigured) {
+        await dataProvider.appendAuditEntry({
+          id: crypto.randomUUID(),
+          entityType: 'repair',
+          entityId: repairId,
+          action: 'repair_ai_confirmed',
+          performedBy,
+          details: { decision: action },
+          createdAt: new Date().toISOString(),
+        });
+      }
       setCorrecting(null);
       await load();
     } catch (err) {
@@ -157,6 +176,26 @@ export function RepairDetailPage() {
           {repair.refPhotoUrl && <PhotoTile label="REF" url={repair.refPhotoUrl} />}
         </div>
 
+        {similarCases.length > 0 && (
+          <Card className="mt-4 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Ähnliche frühere Meldungen</p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {similarCases.map(({ repairCase: match, similarity }) => (
+                <Link
+                  key={match.id}
+                  to={`/reparaturen/${match.id}`}
+                  className="relative aspect-square overflow-hidden rounded-xl bg-ink-100"
+                >
+                  <img src={match.overviewPhotoUrl} alt={match.instrumentName} className="h-full w-full object-cover" />
+                  <span className="absolute bottom-1 left-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    {similarity}%
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {error && <p className="mt-3 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
 
         {!repair.aiSuggestion && (
@@ -198,6 +237,13 @@ export function RepairDetailPage() {
               <ul className="mt-2 space-y-0.5 text-xs text-ink-500">
                 {repair.aiSuggestion.evidence.map((e, i) => (
                   <li key={i}>✓ {e}</li>
+                ))}
+              </ul>
+            )}
+            {repair.aiSuggestion.uncertainties && repair.aiSuggestion.uncertainties.length > 0 && (
+              <ul className="mt-2 space-y-0.5 text-xs text-warning-700">
+                {repair.aiSuggestion.uncertainties.map((u, i) => (
+                  <li key={i}>⚠ {u}</li>
                 ))}
               </ul>
             )}
