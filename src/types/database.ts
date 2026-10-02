@@ -296,6 +296,8 @@ export interface RepairAiSuggestion {
   /** 0-100. UX-only thresholds (see confidenceTier) - never a medical/operational certainty. */
   confidence: number;
   evidence: string[];
+  /** Short, factual caveats about this specific analysis (e.g. "Etikett teilweise verdeckt") - never a safety/fitness verdict. Optional: absent on suggestions produced before this field existed. */
+  uncertainties?: string[];
   model: string;
   analyzedAt: ISODateString;
 }

@@ -400,7 +400,14 @@ export class SupabaseDataProvider implements DataProvider {
   }
 
   async analyzeRepairCase(id: string): Promise<RepairCase> {
-    const { data, error } = await this.client.functions.invoke('analyze-repair-photo', {
+    // VITE_IDM_AI_AGENT_ENABLED (default off) switches to the idm-ai-agent
+    // Edge Function - a minimal skeleton of the external "IDM AI Agent v1"
+    // spec (prompt-injection-hardened, adds an "uncertainties" field) - see
+    // supabase/functions/idm-ai-agent/README.md. analyze-repair-photo stays
+    // the default/fallback path and is otherwise untouched, so this ships
+    // inert until explicitly turned on.
+    const functionName = import.meta.env.VITE_IDM_AI_AGENT_ENABLED === 'true' ? 'idm-ai-agent' : 'analyze-repair-photo';
+    const { data, error } = await this.client.functions.invoke(functionName, {
       body: { repairCaseId: id },
     });
     if (error) {

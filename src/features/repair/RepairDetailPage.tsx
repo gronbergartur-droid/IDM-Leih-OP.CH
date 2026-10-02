@@ -240,6 +240,13 @@ export function RepairDetailPage() {
                 ))}
               </ul>
             )}
+            {repair.aiSuggestion.uncertainties && repair.aiSuggestion.uncertainties.length > 0 && (
+              <ul className="mt-2 space-y-0.5 text-xs text-warning-700">
+                {repair.aiSuggestion.uncertainties.map((u, i) => (
+                  <li key={i}>⚠ {u}</li>
+                ))}
+              </ul>
+            )}
 
             {!correcting && (
               <div className="mt-3 grid grid-cols-2 gap-2">
