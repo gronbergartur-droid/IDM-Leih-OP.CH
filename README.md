@@ -513,39 +513,40 @@ geprüft).
 
 Behoben in zwei Teilen:
 
-- **`supabase/migrations/0013_repair_cases_column_protection.sql`**:
-  entzieht `authenticated` das `UPDATE`-Recht auf genau diese vier
-  Spalten (`revoke update (...) on repair_cases from authenticated`).
-  Bewusst nicht angefasst: `status`/`closed_by`/`closed_at` (separater,
-  nicht gemeldeter Befund, eigener künftiger Durchgang).
-- **`supabase/functions/confirm-repair-ai`** (neu) ist ab jetzt der
-  einzige Weg, diese Spalten zu schreiben: prüft JWT + aktive Person,
-  lädt den Fall über den eigenen (RLS-geprüften) Client der Person,
-  berechnet `instrument_name`/`ref_number` serverseitig (Logik 1:1
-  portiert aus `resolveAiConfirmation.ts`), lehnt eine zweite
-  Bestätigung desselben Vorschlags ab (409) und schreibt erst dann über
-  den Service-Role-Key — `confirmed_by` kommt dabei **immer** aus dem
-  eigenen Profil der Person, nie vom Client. `analyze-repair-photo`
-  wurde identisch umgestellt: schreibt `ai_suggestion` jetzt ebenfalls
-  über den Service-Role-Key, nach denselben Identitäts-/Aktiv-Prüfungen
-  wie zuvor — von aussen unverändertes Verhalten, nur die
+- **`supabase/functions/confirm-repair-ai`** (neu) ist der einzige Weg,
+  diese Spalten zu schreiben: prüft JWT + aktive Person, lädt den Fall
+  über den eigenen (RLS-geprüften) Client der Person, berechnet
+  `instrument_name`/`ref_number` serverseitig (Logik 1:1 portiert aus
+  `resolveAiConfirmation.ts`), lehnt eine zweite Bestätigung desselben
+  Vorschlags ab (409) und schreibt erst dann über den Service-Role-Key —
+  `confirmed_by` kommt dabei **immer** aus dem eigenen Profil der
+  Person, nie vom Client. `analyze-repair-photo` wurde identisch
+  umgestellt: schreibt `ai_suggestion` jetzt ebenfalls über den
+  Service-Role-Key, nach denselben Identitäts-/Aktiv-Prüfungen wie
+  zuvor — von aussen unverändertes Verhalten, nur die
   Schreibberechtigung ist jetzt eng genug.
+- **Spalten-Grant auf `repair_cases`**: `authenticated` darf per
+  `UPDATE` nur noch `status`/`closed_by`/`closed_at` schreiben (das ist
+  alles, was `closeRepairCase` im Client-Code tatsächlich braucht) —
+  alles andere läuft über die beiden Edge Functions oben.
 
-**Deployment-Reihenfolge ist hier wichtig** (anders als bei allen
-anderen Migrationen dieser Session): Die Migration entzieht einer
-Direkt-Schreibung ein Recht, von dem das **aktuell live laufende**
-Frontend (noch auf `main`, ohne diese Änderung) für die Bestätigung
-abhängt. Deshalb:
-
-1. Beide Edge Functions sind bereits live deployed (reiner Zugewinn,
-   funktioniert unabhängig vom Migrationsstatus, da Service-Role immer
-   schreiben darf).
-2. Die Migration selbst wurde **bewusst noch nicht** auf das Live-Projekt
-   angewendet — erst nachdem dieser PR gemerged und das Frontend
-   (welches jetzt `confirm-repair-ai` statt der Direkt-Schreibung
-   aufruft) tatsächlich neu deployed ist, darf sie angewendet werden.
-   Vorher würde sie die Bestätigungs-Buttons (Übernehmen/Korrigieren/
-   Anderes Instrument/Ablehnen) im Live-Betrieb sofort brechen.
+  **Wichtige Korrektur** (`supabase/migrations/0014_repair_cases_column_protection_fix.sql`):
+  Der erste Versuch, `0013_repair_cases_column_protection.sql`, hat
+  `revoke update (ai_suggestion, ai_confirmation, confirmed_by,
+  confirmed_at) on repair_cases from authenticated` ausgeführt — das
+  hatte **keine Wirkung**. `authenticated` hatte daneben noch einen
+  TABLE-weiten `UPDATE`-Grant (aus `0001_init.sql`, vor der
+  RLS-Härtung), und ein spaltenspezifisches `REVOKE` kann in Postgres
+  ein Recht, das weiterhin durch einen umfassenderen Tabellen-Grant
+  impliziert wird, nicht aufheben. Verifiziert direkt gegen
+  `information_schema.role_table_grants`/`column_privileges` nach dem
+  Anwenden von 0013: `authenticated` stand dort unverändert mit
+  `UPDATE` auf allen vier Spalten. Die ursprüngliche Lücke war also nach
+  0013 weiterhin live. 0014 entzieht den Tabellen-Grant komplett und
+  vergibt `UPDATE` nur noch spaltenweise auf genau die drei Spalten, die
+  der Client braucht — das ist der einzige Weg in Postgres, eine
+  Spaltenbeschränkung tatsächlich wirksam zu machen. Bereits auf das
+  Live-Projekt angewendet und verifiziert.
 
 ## Production Hardening: Security-/Privacy-Audit (v2.2 Phase 8)
 
