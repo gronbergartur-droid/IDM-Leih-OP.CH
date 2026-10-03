@@ -1,10 +1,14 @@
+import type { AnalyticsAnswer, AnalyticsSnapshot } from '@/features/analytics/types/analytics';
 import { supabase } from '@/lib/supabase/client';
 import type {
+  AiConfirmationAction,
   AuditLogEntry,
   CaseComparison,
   LoanCase,
   Physician,
   PhysicianInput,
+  RepairCase,
+  RepairCaseInput,
   ScanRecord,
   Supplier,
   SupplierInput,
@@ -161,6 +165,12 @@ export class SupabaseDataProvider implements DataProvider {
       .select('*')
       .eq('tray_id', trayId)
       .order('position');
+    if (error) throw error;
+    return (data ?? []).map(mapInstrumentRow);
+  }
+
+  async getAllTrayInstruments(): Promise<TrayInstrument[]> {
+    const { data, error } = await this.client.from('tray_instruments').select('*').order('position');
     if (error) throw error;
     return (data ?? []).map(mapInstrumentRow);
   }
@@ -337,6 +347,108 @@ export class SupabaseDataProvider implements DataProvider {
       throw new Error(detail?.error ?? error.message);
     }
     return mapCaseRow(data);
+  }
+
+  // ---------------------------------------------------------------------
+  // Reparatur (v2.2 Phase 2 - Repair Photo Foundation)
+  // ---------------------------------------------------------------------
+
+  async createRepairCase(input: RepairCaseInput): Promise<RepairCase> {
+    const { data, error } = await this.client
+      .from('repair_cases')
+      .insert({
+        tray_id: input.trayId,
+        supplier_id: input.supplierId,
+        instrument_name: input.instrumentName,
+        overview_photo_url: input.overviewPhotoUrl,
+        defect_photo_url: input.defectPhotoUrl,
+        ref_photo_url: input.refPhotoUrl,
+        photo_hash: input.photoHash,
+        defect_note: input.defectNote,
+        performed_by: input.performedBy,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapRepairCaseRow(data);
+  }
+
+  async getRepairCases(): Promise<RepairCase[]> {
+    const { data, error } = await this.client
+      .from('repair_cases')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(mapRepairCaseRow);
+  }
+
+  async getRepairCase(id: string): Promise<RepairCase | null> {
+    const { data, error } = await this.client.from('repair_cases').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data ? mapRepairCaseRow(data) : null;
+  }
+
+  async closeRepairCase(id: string, closedBy: string): Promise<RepairCase> {
+    const { data, error } = await this.client
+      .from('repair_cases')
+      .update({ status: 'closed', closed_by: closedBy, closed_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapRepairCaseRow(data);
+  }
+
+  async analyzeRepairCase(id: string): Promise<RepairCase> {
+    // VITE_IDM_AI_AGENT_ENABLED (default off) switches to the idm-ai-agent
+    // Edge Function - a minimal skeleton of the external "IDM AI Agent v1"
+    // spec (prompt-injection-hardened, adds an "uncertainties" field) - see
+    // supabase/functions/idm-ai-agent/README.md. analyze-repair-photo stays
+    // the default/fallback path and is otherwise untouched, so this ships
+    // inert until explicitly turned on.
+    const functionName = import.meta.env.VITE_IDM_AI_AGENT_ENABLED === 'true' ? 'idm-ai-agent' : 'analyze-repair-photo';
+    const { data, error } = await this.client.functions.invoke(functionName, {
+      body: { repairCaseId: id },
+    });
+    if (error) {
+      // Edge Function errors carry the JSON body (incl. our German message) on error.context.
+      const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(detail?.error ?? error.message);
+    }
+    return mapRepairCaseRow(data);
+  }
+
+  async confirmRepairAiSuggestion(
+    id: string,
+    action: AiConfirmationAction,
+    override: { instrumentName?: string; refNumber?: string } | null,
+    _confirmedBy: string,
+  ): Promise<RepairCase> {
+    // Runs through the confirm-repair-ai Edge Function, not a direct table
+    // update: repair_cases.ai_confirmation/confirmed_by/confirmed_at (and
+    // ai_suggestion) are no longer authenticated-writable (see
+    // supabase/migrations/0013_repair_cases_column_protection.sql) -
+    // confirmed_by is always derived server-side from the caller's own
+    // profile, never trusted from the client, so _confirmedBy is unused here.
+    const { data, error } = await this.client.functions.invoke('confirm-repair-ai', {
+      body: { repairCaseId: id, action, override },
+    });
+    if (error) {
+      const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(detail?.error ?? error.message);
+    }
+    return mapRepairCaseRow(data);
+  }
+
+  async askAnalyticsQuestion(question: string, snapshot: AnalyticsSnapshot): Promise<AnalyticsAnswer> {
+    const { data, error } = await this.client.functions.invoke('analytics-query', {
+      body: { question, snapshot },
+    });
+    if (error) {
+      const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(detail?.error ?? error.message);
+    }
+    return data;
   }
 
   // ---------------------------------------------------------------------
@@ -585,5 +697,31 @@ function mapCaseRow(row: any): LoanCase {
     readinessNotifiedAt: row.readiness_notified_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapRepairCaseRow(row: any): RepairCase {
+  return {
+    id: row.id,
+    trayId: row.tray_id,
+    supplierId: row.supplier_id,
+    instrumentName: row.instrument_name,
+    refNumber: row.ref_number,
+    overviewPhotoUrl: row.overview_photo_url,
+    defectPhotoUrl: row.defect_photo_url,
+    refPhotoUrl: row.ref_photo_url,
+    photoHash: row.photo_hash,
+    defectNote: row.defect_note,
+    status: row.status,
+    performedBy: row.performed_by,
+    closedBy: row.closed_by,
+    createdAt: row.created_at,
+    closedAt: row.closed_at,
+    // Stored as a single jsonb column with the same camelCase shape as
+    // RepairAiSuggestion (same convention as loan_cases.comparison).
+    aiSuggestion: row.ai_suggestion,
+    aiConfirmation: row.ai_confirmation,
+    confirmedBy: row.confirmed_by,
+    confirmedAt: row.confirmed_at,
   };
 }

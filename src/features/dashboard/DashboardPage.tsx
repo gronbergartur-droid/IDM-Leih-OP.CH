@@ -1,6 +1,8 @@
 import { Card } from '@/components/ui/Card';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { dataProvider } from '@/services';
 import {
+  BarChart3,
   CircleAlert,
   ClipboardList,
   GitCompareArrows,
@@ -11,6 +13,7 @@ import {
   Sparkles,
   Stethoscope,
   Truck,
+  Wrench,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -46,6 +49,12 @@ const modules = [
     title: 'Ärzteliste',
     description: 'Belegärzte/Operateure nach Fachbereich',
   },
+  {
+    to: '/reparaturen',
+    icon: Wrench,
+    title: 'Reparaturen',
+    description: 'Defekte Instrumente melden und nachverfolgen',
+  },
 ];
 
 interface Stats {
@@ -53,20 +62,37 @@ interface Stats {
   activeSuppliers: number;
   comparedCases: number;
   casesWithDeviations: number;
+  openRepairs: number;
 }
 
 export function DashboardPage() {
+  const { profile } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
+  const analyticsAllowed = !profile || profile.role === 'admin' || profile.role === 'op_leitung';
+  const visibleModules = analyticsAllowed
+    ? [
+        ...modules,
+        {
+          to: '/analytics',
+          icon: BarChart3,
+          title: 'Analytics',
+          description: 'KPIs, Trends und Lieferanten-Auswertungen',
+        },
+      ]
+    : modules;
 
   useEffect(() => {
-    Promise.all([dataProvider.getCases(), dataProvider.getSuppliers()]).then(([cases, suppliers]) => {
-      setStats({
-        openCases: cases.filter((c) => c.status === 'outtake_pending').length,
-        activeSuppliers: suppliers.filter((s) => s.active).length,
-        comparedCases: cases.filter((c) => c.status === 'compared').length,
-        casesWithDeviations: cases.filter((c) => c.comparison?.hasDeviations).length,
-      });
-    });
+    Promise.all([dataProvider.getCases(), dataProvider.getSuppliers(), dataProvider.getRepairCases()]).then(
+      ([cases, suppliers, repairs]) => {
+        setStats({
+          openCases: cases.filter((c) => c.status === 'outtake_pending').length,
+          activeSuppliers: suppliers.filter((s) => s.active).length,
+          comparedCases: cases.filter((c) => c.status === 'compared').length,
+          casesWithDeviations: cases.filter((c) => c.comparison?.hasDeviations).length,
+          openRepairs: repairs.filter((r) => r.status === 'open').length,
+        });
+      },
+    );
   }, []);
 
   return (
@@ -132,13 +158,21 @@ export function DashboardPage() {
             tone={stats && stats.casesWithDeviations > 0 ? 'warning' : 'neutral'}
           />
         </Link>
+        <Link to="/reparaturen">
+          <StatCard
+            icon={Wrench}
+            label="Offene Reparaturen"
+            value={stats?.openRepairs}
+            tone={stats && stats.openRepairs > 0 ? 'warning' : 'neutral'}
+          />
+        </Link>
       </div>
 
       <h3 className="mb-3 mt-7 text-sm font-semibold uppercase tracking-wide text-ink-500">
         Weitere Module
       </h3>
       <div className="grid grid-cols-2 gap-3">
-        {modules.map((mod) => {
+        {visibleModules.map((mod) => {
           const Icon = mod.icon;
           return (
             <Link key={mod.to} to={mod.to}>

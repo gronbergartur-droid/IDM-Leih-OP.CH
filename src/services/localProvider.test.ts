@@ -172,3 +172,127 @@ describe('LocalDataProvider - Eingang/Ausgang/Fälle/Audit regression', () => {
     expect(await provider.findTrayByIdentifier('LEIH 99')).toBeNull();
   });
 });
+
+describe('LocalDataProvider - Reparatur (v2.2 Phase 2) regression', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('reports a repair case open, tied to a tray, and can close it', async () => {
+    const provider = new LocalDataProvider();
+    const supplier = await provider.createSupplier(blankSupplierInput('Reparatur Lieferant', 'REP'));
+    const tray = await provider.createTray({
+      code: 'REP-LEIH-01-01',
+      aliases: [],
+      name: 'Reparatur-Sieb',
+      supplierId: supplier.id,
+      referencePhotoUrl: null,
+      instruments: [],
+    });
+
+    const repairCase = await provider.createRepairCase({
+      trayId: tray.id,
+      supplierId: supplier.id,
+      instrumentName: 'Chirurgische Schere',
+      overviewPhotoUrl: 'data:image/jpeg;base64,overview',
+      defectPhotoUrl: null,
+      refPhotoUrl: null,
+      photoHash: null,
+      defectNote: 'Spitze verbogen',
+      performedBy: 'Tester',
+    });
+
+    expect(repairCase.status).toBe('open');
+    expect((await provider.getRepairCase(repairCase.id))?.id).toBe(repairCase.id);
+    expect(await provider.getRepairCases()).toHaveLength(1);
+
+    const closed = await provider.closeRepairCase(repairCase.id, 'Tester2');
+    expect(closed.status).toBe('closed');
+    expect(closed.closedBy).toBe('Tester2');
+    expect(closed.closedAt).not.toBeNull();
+  });
+
+  it('allows reporting a repair with no tray assigned yet', async () => {
+    const provider = new LocalDataProvider();
+    const repairCase = await provider.createRepairCase({
+      trayId: null,
+      supplierId: null,
+      instrumentName: 'Loses Instrument',
+      overviewPhotoUrl: 'data:image/jpeg;base64,overview',
+      defectPhotoUrl: null,
+      refPhotoUrl: null,
+      photoHash: null,
+      defectNote: 'Unbekannte Herkunft, Griff gebrochen',
+      performedBy: 'Tester',
+    });
+    expect(repairCase.trayId).toBeNull();
+    expect(repairCase.status).toBe('open');
+  });
+
+  it('rejects closing a repair case that does not exist', async () => {
+    const provider = new LocalDataProvider();
+    await expect(provider.closeRepairCase('does-not-exist', 'Tester')).rejects.toThrow();
+  });
+
+  it('refuses to run AI analysis in local/demo mode rather than fabricating a result', async () => {
+    const provider = new LocalDataProvider();
+    const repairCase = await provider.createRepairCase({
+      trayId: null,
+      supplierId: null,
+      instrumentName: 'Loses Instrument',
+      overviewPhotoUrl: 'data:image/jpeg;base64,overview',
+      defectPhotoUrl: null,
+      refPhotoUrl: null,
+      photoHash: null,
+      defectNote: 'Test',
+      performedBy: 'Tester',
+    });
+    await expect(provider.analyzeRepairCase(repairCase.id)).rejects.toThrow();
+  });
+
+  it('confirming with "corrected" updates instrumentName/refNumber and records who/when', async () => {
+    const provider = new LocalDataProvider();
+    const repairCase = await provider.createRepairCase({
+      trayId: null,
+      supplierId: null,
+      instrumentName: 'Vorläufiger Name',
+      overviewPhotoUrl: 'data:image/jpeg;base64,overview',
+      defectPhotoUrl: null,
+      refPhotoUrl: null,
+      photoHash: null,
+      defectNote: 'Test',
+      performedBy: 'Tester',
+    });
+
+    const confirmed = await provider.confirmRepairAiSuggestion(
+      repairCase.id,
+      'corrected',
+      { instrumentName: 'Korrigierter Name', refNumber: 'REF-1' },
+      'Pruefer',
+    );
+    expect(confirmed.instrumentName).toBe('Korrigierter Name');
+    expect(confirmed.refNumber).toBe('REF-1');
+    expect(confirmed.aiConfirmation).toBe('corrected');
+    expect(confirmed.confirmedBy).toBe('Pruefer');
+    expect(confirmed.confirmedAt).not.toBeNull();
+  });
+
+  it('confirming with "rejected" leaves the originally-entered instrumentName untouched', async () => {
+    const provider = new LocalDataProvider();
+    const repairCase = await provider.createRepairCase({
+      trayId: null,
+      supplierId: null,
+      instrumentName: 'Original-Name',
+      overviewPhotoUrl: 'data:image/jpeg;base64,overview',
+      defectPhotoUrl: null,
+      refPhotoUrl: null,
+      photoHash: null,
+      defectNote: 'Test',
+      performedBy: 'Tester',
+    });
+
+    const confirmed = await provider.confirmRepairAiSuggestion(repairCase.id, 'rejected', null, 'Pruefer');
+    expect(confirmed.instrumentName).toBe('Original-Name');
+    expect(confirmed.aiConfirmation).toBe('rejected');
+  });
+});

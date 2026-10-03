@@ -173,11 +173,16 @@ export type AuditAction =
   | 'case_compared'
   | 'case_readiness_notified'
   | 'archive_downloaded'
-  | 'physician_created';
+  | 'physician_created'
+  | 'repair_reported'
+  | 'repair_closed'
+  | 'repair_ai_analyzed'
+  | 'repair_ai_confirmed'
+  | 'analytics_exported';
 
 export interface AuditLogEntry {
   id: UUID;
-  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician';
+  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician' | 'repair' | 'analytics';
   entityId: UUID;
   action: AuditAction;
   performedBy: string;
@@ -266,6 +271,82 @@ export interface LoanCase {
   readinessNotifiedAt: ISODateString | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
+}
+
+// ---------------------------------------------------------------------------
+// Reparatur (v2.2 Phase 2 - Repair Photo Foundation - storage + UI; Phase 3
+// - IDM Intelligence Pilot adds assistive Cloud Agent recognition on top,
+// see docs/roadmap/v2.2/MASTER-PROMPT-v2.2.md section 4/5/21).
+// ---------------------------------------------------------------------------
+
+export type RepairStatus = 'open' | 'closed';
+
+/**
+ * Raw Cloud Agent output for a repair case's photos - always a proposal,
+ * never an authoritative value. Written once and never overwritten/deleted,
+ * so the original AI result stays auditable even after a human correction
+ * (see RepairCase.aiConfirmation / confirmedBy / confirmedAt).
+ */
+export interface RepairAiSuggestion {
+  instrumentCandidate: string;
+  /** REF/Artikelnummer read off the label, if visible - still just a candidate. */
+  refCandidate: string | null;
+  /** Cautiously-worded visible findings only (e.g. "sichtbare Deformation") - never a fitness-for-use verdict. */
+  defectCandidates: string[];
+  /** 0-100. UX-only thresholds (see confidenceTier) - never a medical/operational certainty. */
+  confidence: number;
+  evidence: string[];
+  /** Short, factual caveats about this specific analysis (e.g. "Etikett teilweise verdeckt") - never a safety/fitness verdict. Optional: absent on suggestions produced before this field existed. */
+  uncertainties?: string[];
+  model: string;
+  analyzedAt: ISODateString;
+}
+
+/** What the human did with the AI's suggestion - see RepairAiSuggestion. */
+export type AiConfirmationAction = 'accepted' | 'corrected' | 'other_instrument' | 'rejected';
+
+/**
+ * A reported defective/damaged instrument: up to three photos (overview
+ * mandatory, defect/REF close-ups optional) plus a free-text description.
+ * Deliberately not tied to a specific TrayInstrument row yet.
+ */
+export interface RepairCase {
+  id: UUID;
+  /** The Sieb this instrument normally belongs to, if known. */
+  trayId: UUID | null;
+  supplierId: UUID | null;
+  instrumentName: string;
+  /** REF/Artikelnummer, once known - set manually or via a confirmed AI suggestion. */
+  refNumber: string | null;
+  overviewPhotoUrl: string;
+  defectPhotoUrl: string | null;
+  refPhotoUrl: string | null;
+  /** Perceptual difference-hash (dHash) of overviewPhotoUrl, for archive similarity search (v2.2 Phase 4) - see features/repair/imageHash.ts. */
+  photoHash: string | null;
+  defectNote: string;
+  status: RepairStatus;
+  performedBy: string;
+  closedBy: string | null;
+  createdAt: ISODateString;
+  closedAt: ISODateString | null;
+  /** The Cloud Agent's raw proposal for this case, if analysis has run - immutable once set. */
+  aiSuggestion: RepairAiSuggestion | null;
+  /** Set once a human has acted on aiSuggestion - null while a suggestion is pending review. */
+  aiConfirmation: AiConfirmationAction | null;
+  confirmedBy: string | null;
+  confirmedAt: ISODateString | null;
+}
+
+export interface RepairCaseInput {
+  trayId: UUID | null;
+  supplierId: UUID | null;
+  instrumentName: string;
+  overviewPhotoUrl: string;
+  defectPhotoUrl: string | null;
+  refPhotoUrl: string | null;
+  photoHash: string | null;
+  defectNote: string;
+  performedBy: string;
 }
 
 // ---------------------------------------------------------------------------

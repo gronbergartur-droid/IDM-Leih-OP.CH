@@ -4,6 +4,7 @@ import { dataProvider } from '@/services';
 import type { AuditAction, AuditLogEntry } from '@/types/database';
 import {
   Archive,
+  BarChart3,
   CircleCheck,
   FileSearch,
   GitCompareArrows,
@@ -13,10 +14,12 @@ import {
   ShieldCheck,
   ShieldX,
   SlidersHorizontal,
+  Sparkles,
   Stethoscope,
   Trash2,
   Truck,
   UserPlus,
+  Wrench,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -40,6 +43,11 @@ const ACTION_META: Record<AuditAction, { label: string; icon: typeof ShieldCheck
   case_readiness_notified: { label: 'Lieferant benachrichtigt', icon: Mail, tone: 'text-success-600 bg-success-50' },
   archive_downloaded: { label: 'Archiv heruntergeladen', icon: Archive, tone: 'text-brand-600 bg-brand-50' },
   physician_created: { label: 'Arzt angelegt', icon: Stethoscope, tone: 'text-brand-600 bg-brand-50' },
+  repair_reported: { label: 'Reparatur gemeldet', icon: Wrench, tone: 'text-warning-600 bg-warning-50' },
+  repair_closed: { label: 'Reparatur abgeschlossen', icon: Wrench, tone: 'text-success-600 bg-success-50' },
+  repair_ai_analyzed: { label: 'KI-Analyse (Reparatur)', icon: Sparkles, tone: 'text-brand-600 bg-brand-50' },
+  repair_ai_confirmed: { label: 'KI-Vorschlag bestätigt', icon: Sparkles, tone: 'text-success-600 bg-success-50' },
+  analytics_exported: { label: 'Analytics exportiert', icon: BarChart3, tone: 'text-brand-600 bg-brand-50' },
 };
 
 export function AuditLogPage() {
