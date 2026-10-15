@@ -13,7 +13,6 @@ import {
   Sparkles,
   Stethoscope,
   Truck,
-  Wrench,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -48,12 +47,6 @@ const modules = [
     icon: Stethoscope,
     title: 'Ärzteliste',
     description: 'Belegärzte/Operateure nach Fachbereich',
-  },
-  {
-    to: '/reparaturen',
-    icon: Wrench,
-    title: 'Reparaturen',
-    description: 'Defekte Instrumente melden und nachverfolgen',
   },
 ];
 
@@ -156,14 +149,6 @@ export function DashboardPage() {
             label="Fälle mit Abweichung"
             value={stats?.casesWithDeviations}
             tone={stats && stats.casesWithDeviations > 0 ? 'warning' : 'neutral'}
-          />
-        </Link>
-        <Link to="/reparaturen">
-          <StatCard
-            icon={Wrench}
-            label="Offene Reparaturen"
-            value={stats?.openRepairs}
-            tone={stats && stats.openRepairs > 0 ? 'warning' : 'neutral'}
           />
         </Link>
       </div>
