@@ -580,12 +580,16 @@ Bildnachweis, genau wie der Hygiene-Pass bei Leih-Sieben.
   per Foto bestätigt werden (`fulfillStationOrder`), danach erscheint das
   Bestätigungsfoto auf der Detailseite.
 - **Stationen & Artikel-Stammdaten** (`stations`/`station_material_items`,
-  `supabase/migrations/0015_station_orders.sql`) – wie
-  Lieferanten/Sieb-Referenzen/Ärzteliste reine Referenzdaten, aus dem
-  fotografierten Papierformular übertragen. Aktuell ist nur die
-  „Interdisziplinäre Notfallstation" angelegt; weitere Stationen lassen
-  sich durch zusätzliche Zeilen in `src/data/referenceData.ts` (lokaler
-  Modus) bzw. per `insert` in der Migration (Supabase) ergänzen – die
+  `supabase/migrations/0015_station_orders.sql` +
+  `0016_additional_stations.sql`) – wie Lieferanten/Sieb-Referenzen/
+  Ärzteliste reine Referenzdaten, jeweils aus dem fotografierten
+  Papierformular der Station übertragen. Aktuell angelegt: die
+  „Interdisziplinäre Notfallstation" (vier Kategorien entsprechend den
+  farbigen Abschnitten des Formulars) sowie „A10 Hebammen“, „B05 Gyni
+  Praxis“ und „Intensivbehandlungsstation“ (je eine flache Checkliste ohne
+  Abschnitte, Kategorie „Instrumente“). Weitere Stationen lassen sich durch
+  zusätzliche Zeilen in `src/data/referenceData.ts` (lokaler Modus) bzw.
+  per `insert` in einer neuen Migration (Supabase) ergänzen – die
   Stations-Auswahl im Formular erscheint automatisch, sobald mehr als eine
   Station existiert. Eine Verwaltungsoberfläche für Stationen/Artikel
   (anlegen/bearbeiten über die UI, analog Lieferantenverwaltung) ist
