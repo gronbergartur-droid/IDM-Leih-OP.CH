@@ -9,6 +9,8 @@ import {
   FileSearch,
   GitCompareArrows,
   Mail,
+  Package,
+  PackageCheck,
   PackagePlus,
   ScanSearch,
   ShieldCheck,
@@ -48,6 +50,8 @@ const ACTION_META: Record<AuditAction, { label: string; icon: typeof ShieldCheck
   repair_ai_analyzed: { label: 'KI-Analyse (Reparatur)', icon: Sparkles, tone: 'text-brand-600 bg-brand-50' },
   repair_ai_confirmed: { label: 'KI-Vorschlag bestätigt', icon: Sparkles, tone: 'text-success-600 bg-success-50' },
   analytics_exported: { label: 'Analytics exportiert', icon: BarChart3, tone: 'text-brand-600 bg-brand-50' },
+  station_order_created: { label: 'Sterimaterial bestellt', icon: Package, tone: 'text-brand-600 bg-brand-50' },
+  station_order_fulfilled: { label: 'Ausgang aus AEMP bestätigt', icon: PackageCheck, tone: 'text-success-600 bg-success-50' },
 };
 
 export function AuditLogPage() {

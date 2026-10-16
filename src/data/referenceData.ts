@@ -1,4 +1,4 @@
-import type { Physician, Supplier, Tray, TrayInstrument } from '@/types/database';
+import type { Physician, Station, StationMaterialItem, Supplier, Tray, TrayInstrument } from '@/types/database';
 
 /**
  * Seed reference data for local/demo mode. In production this is replaced by
@@ -312,4 +312,70 @@ export const physicians: Physician[] = [
   { id: 'phys-baggenstos', name: 'Dr. Simon Baggenstos', department: 'Gynäkologie', mobilePhone: '079 618 05 98', practicePhone: '041 811 81 00', email: 'simon.baggenstos@hin.ch', createdAt: '2026-09-23T00:00:00.000Z' },
   { id: 'phys-weber', name: 'Dr. Regula Weber', department: 'Gynäkologie', mobilePhone: '079 709 80 88', practicePhone: '041 811 01 01/08', email: 'regula.weber@hin.ch', createdAt: '2026-09-23T00:00:00.000Z' },
   { id: 'phys-tschiderer', name: 'Dr. Tschiderer-Sadeg Wedad', department: 'Gynäkologie', mobilePhone: '076 225 18 77', practicePhone: '041 870 44 44', email: 'info@gynsadeq.ch', createdAt: '2026-09-23T00:00:00.000Z' },
+];
+
+// Stationen, die Sterimaterial bei der AEMP bestellen koennen. Liste ist
+// bewusst erweiterbar - weitere Stationen koennen spaeter ergaenzt werden,
+// ohne das Schema zu aendern.
+export const stations: Station[] = [
+  {
+    id: 'station-notfall',
+    name: 'Interdisziplinäre Notfallstation',
+    shortCode: 'NOTFALL',
+    active: true,
+    createdAt: '2026-10-16T00:00:00.000Z',
+  },
+];
+
+// Aus dem AEMP-Papierformular "Bestellung Sterimaterial Interdisziplinäre
+// Notfallstation" (Spital Schwyz, Druckdatum 28.10.2025) uebertragen - die
+// vier Kategorien entsprechen den farbigen Abschnitten des Formulars.
+export const stationMaterialItems: StationMaterialItem[] = [
+  // Sterimaterial Interventionsraum
+  { id: 'smi-01', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Chirurgische Pinzette', position: 1 },
+  { id: 'smi-02', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Nadelhalter', position: 2 },
+  { id: 'smi-03', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'scharfer Löffel', position: 3 },
+  { id: 'smi-04', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Thoraxklemme gebogen', position: 4 },
+  { id: 'smi-05', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Thoraxklemme gerade', position: 5 },
+  { id: 'smi-06', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Gebogene, anatomische Moskitoklemme', position: 6 },
+  { id: 'smi-07', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Tuchklemme', position: 7 },
+  { id: 'smi-08', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Selbsthalter-Klemme', position: 8 },
+  { id: 'smi-09', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Hacken', position: 9 },
+  { id: 'smi-10', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Rouxhacken', position: 10 },
+  { id: 'smi-11', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'zwei Zinkhacken', position: 11 },
+  { id: 'smi-12', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'drei Zinkhacken', position: 12 },
+  { id: 'smi-13', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Lidhalter', position: 13 },
+  { id: 'smi-14', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Müsli-/Kornzange', position: 14 },
+  { id: 'smi-15', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Flachzange', position: 15 },
+  { id: 'smi-16', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Luerzange', position: 16 },
+  { id: 'smi-17', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Kneifzange/Seitenschneider', position: 17 },
+  { id: 'smi-18', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Jakobsfutter', position: 18 },
+  { id: 'smi-19', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Schraubenzieher', position: 19 },
+  { id: 'smi-20', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Schlüssel', position: 20 },
+  { id: 'smi-21', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Stevens Schere', position: 21 },
+  { id: 'smi-22', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Dissektor (Helge Burmeister)', position: 22 },
+  { id: 'smi-23', stationId: 'station-notfall', category: 'Sterimaterial Interventionsraum', name: 'Friedmann Zange (Helge Burmeister)', position: 23 },
+
+  // Set's (Interventionsraum)
+  { id: 'smi-24', stationId: 'station-notfall', category: "Set's (Interventionsraum)", name: 'Kleine Wundversorgung', position: 24 },
+  { id: 'smi-25', stationId: 'station-notfall', category: "Set's (Interventionsraum)", name: 'Grosse Wundversorgung', position: 25 },
+  { id: 'smi-26', stationId: 'station-notfall', category: "Set's (Interventionsraum)", name: 'Feine Wundversorgung', position: 26 },
+  { id: 'smi-27', stationId: 'station-notfall', category: "Set's (Interventionsraum)", name: 'Hand-Set', position: 27 },
+
+  // HNO-Wagen (Gang)
+  { id: 'smi-28', stationId: 'station-notfall', category: 'HNO-Wagen (Gang)', name: 'HNO Pinzetten', position: 28 },
+  { id: 'smi-29', stationId: 'station-notfall', category: 'HNO-Wagen (Gang)', name: 'Nasenspekulare', position: 29 },
+  { id: 'smi-30', stationId: 'station-notfall', category: 'HNO-Wagen (Gang)', name: 'Kinder Nasenspekulum', position: 30 },
+  { id: 'smi-31', stationId: 'station-notfall', category: 'HNO-Wagen (Gang)', name: 'Zungen-/Mundspatel', position: 31 },
+  { id: 'smi-32', stationId: 'station-notfall', category: 'HNO-Wagen (Gang)', name: 'HNO-Klemme', position: 32 },
+  { id: 'smi-33', stationId: 'station-notfall', category: 'HNO-Wagen (Gang)', name: 'Rachenspiegel', position: 33 },
+  { id: 'smi-34', stationId: 'station-notfall', category: 'HNO-Wagen (Gang)', name: 'Fisch- oder Hechtmäulchen', position: 34 },
+  { id: 'smi-35', stationId: 'station-notfall', category: 'HNO-Wagen (Gang)', name: 'Nasenhäckchen', position: 35 },
+
+  // Proktowagen (Cystoraum)
+  { id: 'smi-36', stationId: 'station-notfall', category: 'Proktowagen (Cystoraum)', name: 'Proctoskop', position: 36 },
+  { id: 'smi-37', stationId: 'station-notfall', category: 'Proktowagen (Cystoraum)', name: 'Rektoskop', position: 37 },
+  { id: 'smi-38', stationId: 'station-notfall', category: 'Proktowagen (Cystoraum)', name: 'Zweiwege-Hahn', position: 38 },
+  { id: 'smi-39', stationId: 'station-notfall', category: 'Proktowagen (Cystoraum)', name: 'Saug- und Spülrohr', position: 39 },
+  { id: 'smi-40', stationId: 'station-notfall', category: 'Proktowagen (Cystoraum)', name: 'Biopsiezangen', position: 40 },
 ];

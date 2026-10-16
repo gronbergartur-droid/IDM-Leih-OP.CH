@@ -19,6 +19,9 @@ import { EditTrayPage } from '@/features/trays/EditTrayPage';
 import { RepairDetailPage } from '@/features/repair/RepairDetailPage';
 import { ReportRepairFlow } from '@/features/repair/ReportRepairFlow';
 import { RepairsPage } from '@/features/repair/RepairsPage';
+import { NewStationOrderPage } from '@/features/sterimaterial/NewStationOrderPage';
+import { StationOrderDetailPage } from '@/features/sterimaterial/StationOrderDetailPage';
+import { StationOrdersPage } from '@/features/sterimaterial/StationOrdersPage';
 import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
@@ -98,6 +101,9 @@ function App() {
         <Route path="/reparaturen" element={<RepairsPage />} />
         <Route path="/reparaturen/melden" element={<ReportRepairFlow />} />
         <Route path="/reparaturen/:repairId" element={<RepairDetailPage />} />
+        <Route path="/sterimaterial" element={<StationOrdersPage />} />
+        <Route path="/sterimaterial/bestellen" element={<NewStationOrderPage />} />
+        <Route path="/sterimaterial/:orderId" element={<StationOrderDetailPage />} />
         <Route
           path="/analytics"
           element={

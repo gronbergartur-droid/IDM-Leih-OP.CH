@@ -9,6 +9,10 @@ import type {
   RepairCase,
   RepairCaseInput,
   ScanRecord,
+  Station,
+  StationMaterialItem,
+  StationOrder,
+  StationOrderInput,
   Supplier,
   SupplierInput,
   Tray,
@@ -112,6 +116,21 @@ export interface DataProvider {
    * backend.
    */
   askAnalyticsQuestion(question: string, snapshot: AnalyticsSnapshot): Promise<AnalyticsAnswer>;
+
+  /** Hospital departments/units that can order sterile material from AEMP. */
+  getStations(): Promise<Station[]>;
+  /** A station's reference material checklist (mirrors its paper Bestellformular), grouped by category. */
+  getStationMaterialItems(stationId: string): Promise<StationMaterialItem[]>;
+  /** All orders, newest first - callers filter by stationId client-side (the list is small). */
+  getStationOrders(): Promise<StationOrder[]>;
+  getStationOrder(id: string): Promise<StationOrder | null>;
+  createStationOrder(input: StationOrderInput): Promise<StationOrder>;
+  /**
+   * Confirms "Ausgang aus AEMP": the ordered material has actually been
+   * handed over, documented with a photo rather than trusted on word alone
+   * (same pattern as notifySupplierReady's hygiene-passport photo).
+   */
+  fulfillStationOrder(id: string, exitPhotoUrl: string, fulfilledBy: string): Promise<StationOrder>;
 
   /** The authenticated caller's own profile (role, active status), or null if not signed in / not provisioned yet. */
   getCurrentProfile(): Promise<UserProfile | null>;
