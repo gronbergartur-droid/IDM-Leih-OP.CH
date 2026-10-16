@@ -296,3 +296,61 @@ describe('LocalDataProvider - Reparatur (v2.2 Phase 2) regression', () => {
     expect(confirmed.aiConfirmation).toBe('rejected');
   });
 });
+
+describe('LocalDataProvider - Sterimaterial-Bestellung regression', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('serves the seeded station and its categorised material checklist', async () => {
+    const provider = new LocalDataProvider();
+
+    const stations = await provider.getStations();
+    expect(stations.length).toBeGreaterThan(0);
+    const notfall = stations.find((s) => s.shortCode === 'NOTFALL');
+    expect(notfall).toBeDefined();
+
+    const items = await provider.getStationMaterialItems(notfall!.id);
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every((i) => i.stationId === notfall!.id)).toBe(true);
+    // Sorted by position, so the paper form's own ordering survives.
+    expect(items[0].position).toBeLessThan(items[items.length - 1].position);
+  });
+
+  it('creates an order with only the selected lines, then fulfils it with an exit photo', async () => {
+    const provider = new LocalDataProvider();
+
+    const [station] = await provider.getStations();
+    const items = await provider.getStationMaterialItems(station.id);
+
+    const order = await provider.createStationOrder({
+      stationId: station.id,
+      priority: 'express',
+      lines: [
+        { materialItemId: items[0].id, category: items[0].category, name: items[0].name, quantity: 2 },
+        { materialItemId: items[1].id, category: items[1].category, name: items[1].name, quantity: 1 },
+      ],
+      note: 'Test-Bestellung',
+      orderedBy: 'Tester',
+    });
+
+    expect(order.status).toBe('open');
+    expect(order.lines).toHaveLength(2);
+    expect(order.lines[0].quantity).toBe(2);
+    expect((await provider.getStationOrder(order.id))?.id).toBe(order.id);
+    expect((await provider.getStationOrders()).some((o) => o.id === order.id)).toBe(true);
+
+    const fulfilled = await provider.fulfillStationOrder(order.id, 'data:image/jpeg;base64,exit', 'AEMP-Mitarbeiter');
+    expect(fulfilled.status).toBe('fulfilled');
+    expect(fulfilled.exitPhotoUrl).toBe('data:image/jpeg;base64,exit');
+    expect(fulfilled.fulfilledBy).toBe('AEMP-Mitarbeiter');
+    expect(fulfilled.fulfilledAt).not.toBeNull();
+    // The original order and its lines are untouched by fulfilment.
+    expect(fulfilled.lines).toEqual(order.lines);
+  });
+
+  it('rejects fulfilling an order that does not exist', async () => {
+    const provider = new LocalDataProvider();
+    await expect(provider.fulfillStationOrder('missing-id', 'data:image/jpeg;base64,x', 'Tester')).rejects.toThrow();
+  });
+});

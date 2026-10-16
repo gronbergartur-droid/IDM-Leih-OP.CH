@@ -11,6 +11,11 @@ interface CameraCaptureProps {
  * back to a native file picker (camera capture attribute) when no camera
  * stream is available - e.g. desktop browsers without a webcam permission,
  * or embedded webviews that block getUserMedia.
+ *
+ * When more than one camera is available (e.g. a desktop with a built-in
+ * webcam plus an external USB one), a picker lets the user choose which
+ * one to use - getUserMedia alone just grabs browser's default, which
+ * isn't necessarily the one they want.
  */
 export function CameraCapture({ onCapture }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -19,24 +24,38 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  // User's explicit choice from the picker below. Stays null until they
+  // pick one - until then, startStream() below uses facingMode instead,
+  // so this never fights with the initial auto-selected camera.
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  // Which camera the live stream is actually using, purely for showing
+  // the right option as selected in the picker before the user has
+  // chosen anything themselves.
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let localStream: MediaStream | null = null;
 
     async function startStream() {
       if (!navigator.mediaDevices?.getUserMedia) {
         setError('Kamerazugriff wird von diesem Browser nicht unterstützt.');
         return;
       }
+      setReady(false);
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          video: selectedDeviceId
+            ? { deviceId: { exact: selectedDeviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+            : { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
           audio: false,
         });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
+        localStream = stream;
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -44,8 +63,15 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
         }
         setReady(true);
         setError(null);
+        setActiveDeviceId(stream.getVideoTracks()[0]?.getSettings().deviceId ?? null);
+
+        // Device labels are only populated once permission has been
+        // granted, so this only enumerates usefully after a successful
+        // stream above - calling it earlier would just show blank labels.
+        const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+        if (!cancelled) setDevices(mediaDevices.filter((d) => d.kind === 'videoinput'));
       } catch {
-        setError('Kein Kamerazugriff möglich. Bitte Berechtigung erteilen oder Foto auswählen.');
+        if (!cancelled) setError('Kein Kamerazugriff möglich. Bitte Berechtigung erteilen oder Foto auswählen.');
       }
     }
 
@@ -53,10 +79,10 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
 
     return () => {
       cancelled = true;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      localStream?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, []);
+  }, [selectedDeviceId]);
 
   const capture = useCallback(() => {
     const video = videoRef.current;
@@ -109,6 +135,23 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
         )}
         <canvas ref={canvasRef} className="hidden" />
       </div>
+
+      {!error && devices.length > 1 && (
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-medium text-ink-700">Kamera</span>
+          <select
+            value={selectedDeviceId ?? activeDeviceId ?? ''}
+            onChange={(e) => setSelectedDeviceId(e.target.value)}
+            className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          >
+            {devices.map((device, i) => (
+              <option key={device.deviceId} value={device.deviceId}>
+                {device.label || `Kamera ${i + 1}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <input
         ref={fileInputRef}

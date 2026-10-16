@@ -7,13 +7,13 @@ import {
   ClipboardList,
   GitCompareArrows,
   Layers,
+  Package,
   PackageOpen,
   ScanLine,
   ShieldCheck,
   Sparkles,
   Stethoscope,
   Truck,
-  Wrench,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -50,10 +50,10 @@ const modules = [
     description: 'Belegärzte/Operateure nach Fachbereich',
   },
   {
-    to: '/reparaturen',
-    icon: Wrench,
-    title: 'Reparaturen',
-    description: 'Defekte Instrumente melden und nachverfolgen',
+    to: '/sterimaterial',
+    icon: Package,
+    title: 'Sterimaterial-Bestellung',
+    description: 'Material bei der AEMP bestellen und Ausgang bestätigen',
   },
 ];
 
@@ -156,14 +156,6 @@ export function DashboardPage() {
             label="Fälle mit Abweichung"
             value={stats?.casesWithDeviations}
             tone={stats && stats.casesWithDeviations > 0 ? 'warning' : 'neutral'}
-          />
-        </Link>
-        <Link to="/reparaturen">
-          <StatCard
-            icon={Wrench}
-            label="Offene Reparaturen"
-            value={stats?.openRepairs}
-            tone={stats && stats.openRepairs > 0 ? 'warning' : 'neutral'}
           />
         </Link>
       </div>
