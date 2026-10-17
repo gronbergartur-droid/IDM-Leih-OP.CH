@@ -178,11 +178,13 @@ export type AuditAction =
   | 'repair_closed'
   | 'repair_ai_analyzed'
   | 'repair_ai_confirmed'
-  | 'analytics_exported';
+  | 'analytics_exported'
+  | 'station_order_created'
+  | 'station_order_fulfilled';
 
 export interface AuditLogEntry {
   id: UUID;
-  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician' | 'repair' | 'analytics';
+  entityType: 'scan' | 'tray' | 'supplier' | 'case' | 'archive' | 'physician' | 'repair' | 'analytics' | 'station_order';
   entityId: UUID;
   action: AuditAction;
   performedBy: string;
@@ -347,6 +349,80 @@ export interface RepairCaseInput {
   photoHash: string | null;
   defectNote: string;
   performedBy: string;
+}
+
+// ---------------------------------------------------------------------------
+// Sterimaterial-Bestellung (station-based sterile material ordering from
+// AEMP) - digital version of the paper "Bestellung Sterimaterial"
+// form. One station's reference material list is grouped into categories
+// (e.g. "HNO-Wagen (Gang)") exactly like the paper form's coloured
+// sections, with a quantity per line instead of tally marks.
+// ---------------------------------------------------------------------------
+
+/** A hospital department/unit that can order sterile material from AEMP, e.g. "Interdisziplinäre Notfallstation". The list is extensible - more stations can be added later without a schema change. */
+export interface Station {
+  id: UUID;
+  name: string;
+  shortCode: string;
+  active: boolean;
+  createdAt: ISODateString;
+}
+
+/** One orderable line on a station's reference material list, grouped by category for display (mirrors the paper form's coloured sections). */
+export interface StationMaterialItem {
+  id: UUID;
+  stationId: UUID;
+  category: string;
+  name: string;
+  position: number;
+}
+
+/** How urgently AEMP should reprocess/return the ordered material. */
+export type AufbereitungsPrioritaet = 'express' | '24h' | '48h';
+
+export const AUFBEREITUNG_PRIORITAET_LABELS: Record<AufbereitungsPrioritaet, string> = {
+  express: 'Express',
+  '24h': '24 Std. Aufbereitung',
+  '48h': '48 Std. Aufbereitung',
+};
+
+/** One ordered line, snapshotted at order time - category/name are copied from the reference item so a later rename doesn't rewrite order history. */
+export interface StationOrderLine {
+  materialItemId: UUID;
+  category: string;
+  name: string;
+  quantity: number;
+}
+
+export type StationOrderStatus = 'open' | 'fulfilled';
+
+/**
+ * A station's request for sterile material from AEMP. Stays 'open' until
+ * AEMP hands the material over, which is confirmed with a photo ("Ausgang
+ * aus AEMP") rather than trusted on word alone - same evidentiary pattern
+ * as LoanCase.hygienePassportPhotoUrl.
+ */
+export interface StationOrder {
+  id: UUID;
+  stationId: UUID;
+  priority: AufbereitungsPrioritaet;
+  lines: StationOrderLine[];
+  note: string | null;
+  status: StationOrderStatus;
+  orderedBy: string;
+  orderedAt: ISODateString;
+  /** Photo taken when the material actually leaves AEMP - proof of handover. */
+  exitPhotoUrl: string | null;
+  fulfilledBy: string | null;
+  fulfilledAt: ISODateString | null;
+}
+
+export interface StationOrderInput {
+  stationId: UUID;
+  priority: AufbereitungsPrioritaet;
+  lines: StationOrderLine[];
+  note: string | null;
+  orderedBy: string;
 }
 
 // ---------------------------------------------------------------------------

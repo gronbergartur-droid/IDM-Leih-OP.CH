@@ -10,6 +10,10 @@ import type {
   RepairCase,
   RepairCaseInput,
   ScanRecord,
+  Station,
+  StationMaterialItem,
+  StationOrder,
+  StationOrderInput,
   Supplier,
   SupplierInput,
   Tray,
@@ -452,6 +456,73 @@ export class SupabaseDataProvider implements DataProvider {
   }
 
   // ---------------------------------------------------------------------
+  // Sterimaterial-Bestellung
+  // ---------------------------------------------------------------------
+
+  async getStations(): Promise<Station[]> {
+    const { data, error } = await this.client.from('stations').select('*').order('name');
+    if (error) throw error;
+    return (data ?? []).map(mapStationRow);
+  }
+
+  async getStationMaterialItems(stationId: string): Promise<StationMaterialItem[]> {
+    const { data, error } = await this.client
+      .from('station_material_items')
+      .select('*')
+      .eq('station_id', stationId)
+      .order('position', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(mapStationMaterialItemRow);
+  }
+
+  async getStationOrders(): Promise<StationOrder[]> {
+    const { data, error } = await this.client
+      .from('station_orders')
+      .select('*')
+      .order('ordered_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(mapStationOrderRow);
+  }
+
+  async getStationOrder(id: string): Promise<StationOrder | null> {
+    const { data, error } = await this.client.from('station_orders').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data ? mapStationOrderRow(data) : null;
+  }
+
+  async createStationOrder(input: StationOrderInput): Promise<StationOrder> {
+    const { data, error } = await this.client
+      .from('station_orders')
+      .insert({
+        station_id: input.stationId,
+        priority: input.priority,
+        lines: input.lines,
+        note: input.note,
+        ordered_by: input.orderedBy,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapStationOrderRow(data);
+  }
+
+  async fulfillStationOrder(id: string, exitPhotoUrl: string, fulfilledBy: string): Promise<StationOrder> {
+    const { data, error } = await this.client
+      .from('station_orders')
+      .update({
+        status: 'fulfilled',
+        exit_photo_url: exitPhotoUrl,
+        fulfilled_by: fulfilledBy,
+        fulfilled_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapStationOrderRow(data);
+  }
+
+  // ---------------------------------------------------------------------
   // Users / roles
   // ---------------------------------------------------------------------
 
@@ -726,3 +797,40 @@ function mapRepairCaseRow(row: any): RepairCase {
   };
 }
 
+function mapStationRow(row: any): Station {
+  return {
+    id: row.id,
+    name: row.name,
+    shortCode: row.short_code,
+    active: row.active,
+    createdAt: row.created_at,
+  };
+}
+
+function mapStationMaterialItemRow(row: any): StationMaterialItem {
+  return {
+    id: row.id,
+    stationId: row.station_id,
+    category: row.category,
+    name: row.name,
+    position: row.position,
+  };
+}
+
+function mapStationOrderRow(row: any): StationOrder {
+  return {
+    id: row.id,
+    stationId: row.station_id,
+    priority: row.priority,
+    // Stored as a single jsonb column (same convention as
+    // repair_cases.ai_suggestion / loan_cases.comparison).
+    lines: row.lines ?? [],
+    note: row.note,
+    status: row.status,
+    orderedBy: row.ordered_by,
+    orderedAt: row.ordered_at,
+    exitPhotoUrl: row.exit_photo_url,
+    fulfilledBy: row.fulfilled_by,
+    fulfilledAt: row.fulfilled_at,
+  };
+}

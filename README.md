@@ -177,6 +177,13 @@ ein echtes Supabase-Projekt angepasst werden muss.
   der internen Telefonliste übertragen (aktuell Orthopädie und Gynäkologie).
   Wird beim Sieb-Fall-Eingang als Operateur-Auswahl verwendet; weitere
   Ärzte/Fachbereiche können über „+” ergänzt werden.
+- **Sterimaterial-Bestellung** (`/sterimaterial`) – digitale Version des
+  Papierformulars „Bestellung Sterimaterial”, mit dem eine Station Material
+  bei der AEMP bestellt: Checkliste nach Kategorie, Mengenangabe pro
+  Artikel, Aufbereitungs-Priorität (Express / 24 Std. / 48 Std.) und
+  optionale Bemerkung. Der Ausgang aus der AEMP wird erst durch ein Foto
+  bestätigt (gleiches Muster wie der Hygiene-Pass bei Leih-Sieben) – siehe
+  „Sterimaterial-Bestellung (AEMP-Material für Stationen)” unten.
 - **Sieb-Bereitschaft nach Sterilisation** (auf der Fall-Detailseite, sobald
   der Ausgang erfasst ist) – der Hygiene-Pass der aktuellen
   Sterilisationscharge (Chargen-Ausdruck, bei jedem Zyklus anders) wird
@@ -547,6 +554,48 @@ Behoben in zwei Teilen:
   der Client braucht — das ist der einzige Weg in Postgres, eine
   Spaltenbeschränkung tatsächlich wirksam zu machen. Bereits auf das
   Live-Projekt angewendet und verifiziert.
+
+## Sterimaterial-Bestellung (AEMP-Material für Stationen)
+
+Digitalisiert das Papierformular „Bestellung Sterimaterial Interdisziplinäre
+Notfallstation" der Spital Schwyz AEMP/Zentralsterilisation (Druckdatum
+28.10.2025): eine Station wählt aus einer nach Kategorie gruppierten
+Checkliste (~40 Artikel, Mengenangabe per Stepper statt Strichliste),
+vergibt eine Aufbereitungs-Priorität und schickt die Bestellung an die
+AEMP. Die AEMP bestätigt den **Ausgang aus der AEMP** erst mit einem Foto
+(`src/components/camera/CameraCapture.tsx`, dieselbe Komponente wie beim
+Hygiene-Pass unter „Sieb-Bereitschaft nach Sterilisation" oben) – eine
+Bestellung gilt nicht allein auf Zuruf als erledigt, sondern erst mit
+Bildnachweis, genau wie der Hygiene-Pass bei Leih-Sieben.
+
+- **Bestellungen** (`/sterimaterial`) – Liste aller Bestellungen mit
+  Station, Artikelzahl, Priorität, Datum und Status (`offen` /
+  `abgeschlossen`).
+- **Neue Bestellung** (`/sterimaterial/bestellen`) – Stations-Auswahl (nur
+  sichtbar, sobald mehr als eine Station existiert), Prioritäts-Auswahl
+  (Express / 24 Std. / 48 Std.), nach Kategorie gruppierte Checkliste mit
+  Mengen-Stepper pro Artikel, optionale Bemerkung.
+- **Bestelldetail** (`/sterimaterial/:orderId`) – zeigt die bestellten
+  Positionen nach Kategorie; solange offen, kann der Ausgang aus der AEMP
+  per Foto bestätigt werden (`fulfillStationOrder`), danach erscheint das
+  Bestätigungsfoto auf der Detailseite.
+- **Stationen & Artikel-Stammdaten** (`stations`/`station_material_items`,
+  `supabase/migrations/0015_station_orders.sql` +
+  `0016_additional_stations.sql`) – wie Lieferanten/Sieb-Referenzen/
+  Ärzteliste reine Referenzdaten, jeweils aus dem fotografierten
+  Papierformular der Station übertragen. Aktuell angelegt: die
+  „Interdisziplinäre Notfallstation" (vier Kategorien entsprechend den
+  farbigen Abschnitten des Formulars) sowie „A10 Hebammen“, „B05 Gyni
+  Praxis“ und „Intensivbehandlungsstation“ (je eine flache Checkliste ohne
+  Abschnitte, Kategorie „Instrumente“). Weitere Stationen lassen sich durch
+  zusätzliche Zeilen in `src/data/referenceData.ts` (lokaler Modus) bzw.
+  per `insert` in einer neuen Migration (Supabase) ergänzen – die
+  Stations-Auswahl im Formular erscheint automatisch, sobald mehr als eine
+  Station existiert. Eine Verwaltungsoberfläche für Stationen/Artikel
+  (anlegen/bearbeiten über die UI, analog Lieferantenverwaltung) ist
+  bewusst noch nicht gebaut, da dafür bislang kein Bedarf besteht.
+- Jede Bestellung und jede Ausgangs-Bestätigung wird im Audit-Log erfasst
+  (`station_order_created`, `station_order_fulfilled`).
 
 ## Production Hardening: Security-/Privacy-Audit (v2.2 Phase 8)
 

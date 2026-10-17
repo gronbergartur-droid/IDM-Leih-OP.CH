@@ -7,6 +7,7 @@ import {
   ClipboardList,
   GitCompareArrows,
   Layers,
+  Package,
   PackageOpen,
   ScanLine,
   ShieldCheck,
@@ -47,6 +48,12 @@ const modules = [
     icon: Stethoscope,
     title: 'Ärzteliste',
     description: 'Belegärzte/Operateure nach Fachbereich',
+  },
+  {
+    to: '/sterimaterial',
+    icon: Package,
+    title: 'Sterimaterial-Bestellung',
+    description: 'Material bei der AEMP bestellen und Ausgang bestätigen',
   },
 ];
 
