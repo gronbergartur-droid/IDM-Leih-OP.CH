@@ -46,20 +46,27 @@ export function AempAusgabePage() {
         <div className="space-y-2.5">
           {orders?.map((order) => {
             const station = stations.find((s) => s.id === order.stationId);
-            const itemCount = order.lines.reduce((sum, l) => sum + l.quantity, 0);
             return (
               <Link key={order.id} to={`/sterimaterial/${order.id}`} className="block">
-                <Card className="flex items-center gap-3 p-3.5 active:bg-ink-50">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-                    <PackageCheck size={20} />
+                <Card className="p-3.5 active:bg-ink-50">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                      <PackageCheck size={20} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink-900">{station?.name ?? 'Station'}</p>
+                      <p className="mt-0.5 truncate text-xs text-ink-500">{formatDateOnly(order.orderDate)}</p>
+                    </div>
+                    <Badge tone="brand">{AUFBEREITUNG_PRIORITAET_LABELS[order.priority]}</Badge>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink-900">{station?.name ?? 'Station'}</p>
-                    <p className="mt-0.5 truncate text-xs text-ink-500">
-                      {itemCount} Artikel · {formatDateOnly(order.orderDate)}
-                    </p>
+                  <div className="mt-3 divide-y divide-ink-100 border-t border-ink-100">
+                    {order.lines.map((line) => (
+                      <div key={line.materialItemId} className="flex items-center justify-between py-2 text-sm">
+                        <span className="text-ink-700">{line.name}</span>
+                        <span className="font-semibold text-ink-900">×{line.quantity}</span>
+                      </div>
+                    ))}
                   </div>
-                  <Badge tone="brand">{AUFBEREITUNG_PRIORITAET_LABELS[order.priority]}</Badge>
                 </Card>
               </Link>
             );
