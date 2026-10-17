@@ -561,24 +561,31 @@ Digitalisiert das Papierformular „Bestellung Sterimaterial Interdisziplinäre
 Notfallstation" der Spital Schwyz AEMP/Zentralsterilisation (Druckdatum
 28.10.2025): eine Station wählt aus einer nach Kategorie gruppierten
 Checkliste (~40 Artikel, Mengenangabe per Stepper statt Strichliste),
-vergibt eine Aufbereitungs-Priorität und schickt die Bestellung an die
-AEMP. Die AEMP bestätigt den **Ausgang aus der AEMP** erst mit einem Foto
-(`src/components/camera/CameraCapture.tsx`, dieselbe Komponente wie beim
-Hygiene-Pass unter „Sieb-Bereitschaft nach Sterilisation" oben) – eine
-Bestellung gilt nicht allein auf Zuruf als erledigt, sondern erst mit
-Bildnachweis, genau wie der Hygiene-Pass bei Leih-Sieben.
+vergibt eine Aufbereitungs-Priorität und sendet das Material an die AEMP.
+Beide Richtungen des Rundlaufs sind mit einem Foto dokumentiert, nicht
+allein auf Zuruf: beim **Versand an die AEMP** (Formularfeld „Datum" plus
+ein Foto des Materials vor dem Versand) und beim **Ausgang aus der AEMP**
+(Foto des aufbereiteten Materials bei der Übergabe) – jeweils über
+`src/features/scanner/CameraCapture.tsx`, dieselbe Komponente wie beim
+Hygiene-Pass unter „Sieb-Bereitschaft nach Sterilisation" oben. Das
+Formularfeld „Name" wird nicht separat erfasst, sondern ergibt sich aus der
+angemeldeten Person (`orderedBy`/`fulfilledBy`) – kein zusätzliches
+Freitextfeld nötig, da die Registrierung über ein Benutzerkonto läuft.
 
 - **Bestellungen** (`/sterimaterial`) – Liste aller Bestellungen mit
   Station, Artikelzahl, Priorität, Datum und Status (`offen` /
   `abgeschlossen`).
 - **Neue Bestellung** (`/sterimaterial/bestellen`) – Stations-Auswahl (nur
-  sichtbar, sobald mehr als eine Station existiert), Prioritäts-Auswahl
-  (Express / 24 Std. / 48 Std.), nach Kategorie gruppierte Checkliste mit
-  Mengen-Stepper pro Artikel, optionale Bemerkung.
-- **Bestelldetail** (`/sterimaterial/:orderId`) – zeigt die bestellten
-  Positionen nach Kategorie; solange offen, kann der Ausgang aus der AEMP
-  per Foto bestätigt werden (`fulfillStationOrder`), danach erscheint das
-  Bestätigungsfoto auf der Detailseite.
+  sichtbar, sobald mehr als eine Station existiert), Datum (vorbelegt mit
+  heute, editierbar – Kalender-Input), Prioritäts-Auswahl (Express /
+  24 Std. / 48 Std.), nach Kategorie gruppierte Checkliste mit
+  Mengen-Stepper pro Artikel, optionale Bemerkung, Foto des Materials vor
+  dem Versand (Pflicht, Kamera).
+- **Bestelldetail** (`/sterimaterial/:orderId`) – zeigt Versand-Datum und
+  -Foto sowie die bestellten Positionen nach Kategorie; solange offen, kann
+  der Ausgang aus der AEMP per Foto bestätigt werden
+  (`fulfillStationOrder`), danach erscheinen beide Bestätigungen auf der
+  Detailseite.
 - **Stationen & Artikel-Stammdaten** (`stations`/`station_material_items`,
   `supabase/migrations/0015_station_orders.sql` +
   `0016_additional_stations.sql`) – wie Lieferanten/Sieb-Referenzen/

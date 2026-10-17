@@ -102,6 +102,18 @@ export function StationOrderDetailPage() {
           <span className="text-xs text-ink-500">bestellt von {order.orderedBy}</span>
         </div>
 
+        <Card className="mb-4 p-3.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">An AEMP gesendet</p>
+          <p className="mt-1 text-sm text-ink-700">
+            {order.orderedBy} · {formatDateOnly(order.orderDate)}
+          </p>
+          {order.sendPhotoUrl && (
+            <div className="mt-3 overflow-hidden rounded-xl bg-ink-900">
+              <img src={order.sendPhotoUrl} alt="Material vor dem Versand" className="w-full object-contain" />
+            </div>
+          )}
+        </Card>
+
         {order.note && (
           <Card className="mb-4 p-3.5">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Bemerkung</p>
@@ -185,5 +197,13 @@ function formatDate(iso: string): string {
     year: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+  });
+}
+
+function formatDateOnly(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString('de-CH', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
   });
 }

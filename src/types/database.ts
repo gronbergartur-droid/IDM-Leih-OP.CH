@@ -397,10 +397,14 @@ export interface StationOrderLine {
 export type StationOrderStatus = 'open' | 'fulfilled';
 
 /**
- * A station's request for sterile material from AEMP. Stays 'open' until
- * AEMP hands the material over, which is confirmed with a photo ("Ausgang
- * aus AEMP") rather than trusted on word alone - same evidentiary pattern
- * as LoanCase.hygienePassportPhotoUrl.
+ * A round trip between a station and AEMP: the station sends used
+ * instruments/material to AEMP for reprocessing (documented with a photo,
+ * same as the paper form's "Datum" field - "Name" is covered by the
+ * logged-in account's identity, orderedBy, rather than a separate manual
+ * field), and stays 'open' until AEMP hands the reprocessed material back,
+ * which is confirmed with a photo ("Ausgang aus AEMP") - neither leg is
+ * trusted on word alone, same evidentiary pattern as
+ * LoanCase.hygienePassportPhotoUrl.
  */
 export interface StationOrder {
   id: UUID;
@@ -409,9 +413,13 @@ export interface StationOrder {
   lines: StationOrderLine[];
   note: string | null;
   status: StationOrderStatus;
+  /** Date the material was sent to AEMP - editable (paper form's "Datum" field), defaults to today. */
+  orderDate: ISODateString;
+  /** Photo of the material being sent to AEMP, taken at order creation. */
+  sendPhotoUrl: string;
   orderedBy: string;
   orderedAt: ISODateString;
-  /** Photo taken when the material actually leaves AEMP - proof of handover. */
+  /** Photo taken when the reprocessed material actually leaves AEMP - proof of handover. */
   exitPhotoUrl: string | null;
   fulfilledBy: string | null;
   fulfilledAt: ISODateString | null;
@@ -422,6 +430,8 @@ export interface StationOrderInput {
   priority: AufbereitungsPrioritaet;
   lines: StationOrderLine[];
   note: string | null;
+  orderDate: ISODateString;
+  sendPhotoUrl: string;
   orderedBy: string;
 }
 

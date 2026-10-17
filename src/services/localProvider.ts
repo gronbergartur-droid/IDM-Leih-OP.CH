@@ -485,6 +485,8 @@ export class LocalDataProvider implements DataProvider {
       lines: input.lines,
       note: input.note,
       status: 'open',
+      orderDate: input.orderDate,
+      sendPhotoUrl: input.sendPhotoUrl,
       orderedBy: input.orderedBy,
       orderedAt: new Date().toISOString(),
       exitPhotoUrl: null,

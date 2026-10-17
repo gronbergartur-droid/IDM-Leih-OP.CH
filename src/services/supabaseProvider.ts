@@ -498,6 +498,8 @@ export class SupabaseDataProvider implements DataProvider {
         priority: input.priority,
         lines: input.lines,
         note: input.note,
+        order_date: input.orderDate,
+        send_photo_url: input.sendPhotoUrl,
         ordered_by: input.orderedBy,
       })
       .select('*')
@@ -827,6 +829,8 @@ function mapStationOrderRow(row: any): StationOrder {
     lines: row.lines ?? [],
     note: row.note,
     status: row.status,
+    orderDate: row.order_date,
+    sendPhotoUrl: row.send_photo_url,
     orderedBy: row.ordered_by,
     orderedAt: row.ordered_at,
     exitPhotoUrl: row.exit_photo_url,

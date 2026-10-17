@@ -331,12 +331,16 @@ describe('LocalDataProvider - Sterimaterial-Bestellung regression', () => {
         { materialItemId: items[1].id, category: items[1].category, name: items[1].name, quantity: 1 },
       ],
       note: 'Test-Bestellung',
+      orderDate: '2026-10-17',
+      sendPhotoUrl: 'data:image/jpeg;base64,send',
       orderedBy: 'Tester',
     });
 
     expect(order.status).toBe('open');
     expect(order.lines).toHaveLength(2);
     expect(order.lines[0].quantity).toBe(2);
+    expect(order.orderDate).toBe('2026-10-17');
+    expect(order.sendPhotoUrl).toBe('data:image/jpeg;base64,send');
     expect((await provider.getStationOrder(order.id))?.id).toBe(order.id);
     expect((await provider.getStationOrders()).some((o) => o.id === order.id)).toBe(true);
 

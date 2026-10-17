@@ -126,7 +126,7 @@ export interface DataProvider {
   getStationOrder(id: string): Promise<StationOrder | null>;
   createStationOrder(input: StationOrderInput): Promise<StationOrder>;
   /**
-   * Confirms "Ausgang aus AEMP": the ordered material has actually been
+   * Confirms "Ausgang aus AEMP": the reprocessed material has actually been
    * handed over, documented with a photo rather than trusted on word alone
    * (same pattern as notifySupplierReady's hygiene-passport photo).
    */
