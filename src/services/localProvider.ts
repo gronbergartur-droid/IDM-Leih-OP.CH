@@ -1,4 +1,4 @@
-import { physicians, stationMaterialItems, stations, suppliers, trayInstruments, trays } from '@/data/referenceData';
+import { physicians, suppliers, trayInstruments, trays } from '@/data/referenceData';
 import { getCurrentUser, setCurrentUser } from '@/lib/currentUser';
 import type { AnalyticsAnswer, AnalyticsSnapshot } from '@/features/analytics/types/analytics';
 import { resolveAiConfirmation } from '@/features/repair/resolveAiConfirmation';
@@ -12,10 +12,6 @@ import type {
   RepairCase,
   RepairCaseInput,
   ScanRecord,
-  Station,
-  StationMaterialItem,
-  StationOrder,
-  StationOrderInput,
   Supplier,
   SupplierInput,
   Tray,
@@ -36,7 +32,6 @@ const TRAYS_KEY = 'idm-mobile.trays.v1';
 const TRAY_INSTRUMENTS_KEY = 'idm-mobile.tray-instruments.v1';
 const CASES_KEY = 'idm-mobile.cases.v1';
 const REPAIR_CASES_KEY = 'idm-mobile.repair-cases.v1';
-const STATION_ORDERS_KEY = 'idm-mobile.station-orders.v1';
 
 function readFromStorage<T>(key: string, fallback: T[]): T[] {
   if (typeof window === 'undefined') return fallback;
@@ -81,7 +76,6 @@ export class LocalDataProvider implements DataProvider {
   );
   private cases: LoanCase[] = readFromStorage<LoanCase>(CASES_KEY, []);
   private repairCases: RepairCase[] = readFromStorage<RepairCase>(REPAIR_CASES_KEY, []);
-  private stationOrders: StationOrder[] = readFromStorage<StationOrder>(STATION_ORDERS_KEY, []);
 
   // ---------------------------------------------------------------------
   // Suppliers
@@ -450,65 +444,6 @@ export class LocalDataProvider implements DataProvider {
     // No server/model to call in local/demo mode - never pretend a Cloud
     // Agent answer exists without a real backend (see docs/roadmap/v2.2).
     throw new Error('Cloud-Agent-Abfragen sind nur mit verbundenem Supabase-Projekt verfügbar.');
-  }
-
-  // ---------------------------------------------------------------------
-  // Sterimaterial-Bestellung
-  //
-  // Stations and their material checklists are reference data (seeded from
-  // the AEMP paper form, see data/referenceData.ts) - not user-editable in
-  // this pass, so they're served straight from the import, unlike orders
-  // which are genuine per-request state.
-  // ---------------------------------------------------------------------
-
-  async getStations(): Promise<Station[]> {
-    return [...stations].sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  async getStationMaterialItems(stationId: string): Promise<StationMaterialItem[]> {
-    return stationMaterialItems.filter((i) => i.stationId === stationId).sort((a, b) => a.position - b.position);
-  }
-
-  async getStationOrders(): Promise<StationOrder[]> {
-    return [...this.stationOrders].sort((a, b) => (a.orderedAt < b.orderedAt ? 1 : -1));
-  }
-
-  async getStationOrder(id: string): Promise<StationOrder | null> {
-    return this.stationOrders.find((o) => o.id === id) ?? null;
-  }
-
-  async createStationOrder(input: StationOrderInput): Promise<StationOrder> {
-    const order: StationOrder = {
-      id: crypto.randomUUID(),
-      stationId: input.stationId,
-      priority: input.priority,
-      lines: input.lines,
-      note: input.note,
-      status: 'open',
-      orderedBy: input.orderedBy,
-      orderedAt: new Date().toISOString(),
-      exitPhotoUrl: null,
-      fulfilledBy: null,
-      fulfilledAt: null,
-    };
-    this.stationOrders = [order, ...this.stationOrders];
-    writeToStorage(STATION_ORDERS_KEY, this.stationOrders);
-    return order;
-  }
-
-  async fulfillStationOrder(id: string, exitPhotoUrl: string, fulfilledBy: string): Promise<StationOrder> {
-    const existing = this.stationOrders.find((o) => o.id === id);
-    if (!existing) throw new Error('Bestellung nicht gefunden.');
-    const updated: StationOrder = {
-      ...existing,
-      status: 'fulfilled',
-      exitPhotoUrl,
-      fulfilledBy,
-      fulfilledAt: new Date().toISOString(),
-    };
-    this.stationOrders = this.stationOrders.map((o) => (o.id === id ? updated : o));
-    writeToStorage(STATION_ORDERS_KEY, this.stationOrders);
-    return updated;
   }
 
   // ---------------------------------------------------------------------
