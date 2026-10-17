@@ -572,19 +572,28 @@ Formularfeld „Name" wird nicht separat erfasst, sondern ergibt sich aus der
 angemeldeten Person (`orderedBy`/`fulfilledBy`) – kein zusätzliches
 Freitextfeld nötig, da die Registrierung über ein Benutzerkonto läuft.
 
-- **Bestellungen** (`/sterimaterial`) – Liste aller Bestellungen mit
-  Station, Artikelzahl, Priorität, Datum und Status (`offen` /
-  `abgeschlossen`).
+Getrennte Sicht für die beiden Seiten des Rundlaufs, da unterschiedliche
+Personen betroffen sind: Stationen bestellen und verfolgen ihre eigenen
+Bestellungen, AEMP sieht nur die eigene Warteschlange offener Bestellungen.
+
+- **Bestellungen** (`/sterimaterial`) – Stations-Sicht: Liste aller eigenen
+  Bestellungen (offen und abgeschlossen) mit Station, Artikelzahl,
+  Priorität, Datum und Status, plus der Einstieg in „Neue Bestellung".
 - **Neue Bestellung** (`/sterimaterial/bestellen`) – Stations-Auswahl (nur
   sichtbar, sobald mehr als eine Station existiert), Datum (vorbelegt mit
   heute, editierbar – Kalender-Input), Prioritäts-Auswahl (Express /
   24 Std. / 48 Std.), nach Kategorie gruppierte Checkliste mit
   Mengen-Stepper pro Artikel, optionale Bemerkung, Foto des Materials vor
   dem Versand (Pflicht, Kamera).
-- **Bestelldetail** (`/sterimaterial/:orderId`) – zeigt Versand-Datum und
-  -Foto sowie die bestellten Positionen nach Kategorie; solange offen, kann
-  der Ausgang aus der AEMP per Foto bestätigt werden
-  (`fulfillStationOrder`), danach erscheinen beide Bestätigungen auf der
+- **Ausgabe AEMP** (`/sterimaterial/ausgabe`) – AEMP-Sicht: nur die noch
+  offenen Bestellungen aller Stationen, älteste zuerst (Abarbeitungs-
+  Reihenfolge), ohne „Neue Bestellung"-Button – AEMP bestellt nichts,
+  sondern bearbeitet die Warteschlange.
+- **Bestelldetail** (`/sterimaterial/:orderId`) – von beiden Sichten aus
+  erreichbar; zeigt Versand-Datum und -Foto sowie die bestellten
+  Positionen nach Kategorie; solange offen, kann der Ausgang aus der AEMP
+  per Foto bestätigt werden (`fulfillStationOrder`), danach erscheinen
+  beide Bestätigungen auf der
   Detailseite.
 - **Stationen & Artikel-Stammdaten** (`stations`/`station_material_items`,
   `supabase/migrations/0015_station_orders.sql` +

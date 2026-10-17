@@ -9,11 +9,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 /**
- * Digital version of the AEMP paper "Bestellung Sterimaterial" form:
- * stations order sterile material by checking quantities off their own
- * reference list (see NewStationOrderPage), and AEMP confirms handover with
- * a photo once the material actually leaves the department (see
- * StationOrderDetailPage) - never just a status flip on word alone.
+ * Digital version of the AEMP paper "Bestellung Sterimaterial" form - the
+ * stations' own view: order sterile material by checking quantities off
+ * their own reference list (see NewStationOrderPage) and track every order
+ * they've placed, open or fulfilled. AEMP's own queue of open orders to
+ * process lives separately (see AempAusgabePage); both link into the same
+ * StationOrderDetailPage, where the "Ausgang aus AEMP" photo confirmation
+ * happens - never just a status flip on word alone.
  */
 export function StationOrdersPage() {
   const [orders, setOrders] = useState<StationOrder[] | null>(null);
