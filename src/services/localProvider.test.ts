@@ -331,18 +331,30 @@ describe('LocalDataProvider - Sterimaterial-Bestellung regression', () => {
         { materialItemId: items[1].id, category: items[1].category, name: items[1].name, quantity: 1 },
       ],
       note: 'Test-Bestellung',
+      orderDate: '2026-10-17',
+      senderName: 'Pia Oss',
+      sendPhotoUrl: 'data:image/jpeg;base64,send',
       orderedBy: 'Tester',
     });
 
     expect(order.status).toBe('open');
     expect(order.lines).toHaveLength(2);
     expect(order.lines[0].quantity).toBe(2);
+    expect(order.orderDate).toBe('2026-10-17');
+    expect(order.senderName).toBe('Pia Oss');
+    expect(order.sendPhotoUrl).toBe('data:image/jpeg;base64,send');
     expect((await provider.getStationOrder(order.id))?.id).toBe(order.id);
     expect((await provider.getStationOrders()).some((o) => o.id === order.id)).toBe(true);
 
-    const fulfilled = await provider.fulfillStationOrder(order.id, 'data:image/jpeg;base64,exit', 'AEMP-Mitarbeiter');
+    const fulfilled = await provider.fulfillStationOrder(
+      order.id,
+      'data:image/jpeg;base64,exit',
+      'Max Muster',
+      'AEMP-Mitarbeiter',
+    );
     expect(fulfilled.status).toBe('fulfilled');
     expect(fulfilled.exitPhotoUrl).toBe('data:image/jpeg;base64,exit');
+    expect(fulfilled.fulfilledByName).toBe('Max Muster');
     expect(fulfilled.fulfilledBy).toBe('AEMP-Mitarbeiter');
     expect(fulfilled.fulfilledAt).not.toBeNull();
     // The original order and its lines are untouched by fulfilment.
@@ -351,6 +363,8 @@ describe('LocalDataProvider - Sterimaterial-Bestellung regression', () => {
 
   it('rejects fulfilling an order that does not exist', async () => {
     const provider = new LocalDataProvider();
-    await expect(provider.fulfillStationOrder('missing-id', 'data:image/jpeg;base64,x', 'Tester')).rejects.toThrow();
+    await expect(
+      provider.fulfillStationOrder('missing-id', 'data:image/jpeg;base64,x', 'Tester', 'Tester'),
+    ).rejects.toThrow();
   });
 });

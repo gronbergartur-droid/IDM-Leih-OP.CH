@@ -1,6 +1,7 @@
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { CameraCapture } from '@/features/scanner/CameraCapture';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { dataProvider } from '@/services';
 import {
@@ -9,17 +10,24 @@ import {
   type Station,
   type StationMaterialItem,
 } from '@/types/database';
-import { Minus, Plus, Send } from 'lucide-react';
+import { Minus, Plus, RotateCcw, Send } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const PRIORITIES: AufbereitungsPrioritaet[] = ['express', '24h', '48h'];
 
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 /**
  * Digital checklist matching a station's paper Bestellformular (quantity
  * stepper instead of tally marks), plus an Aufbereitung priority the paper
  * form doesn't capture digitally on its own. Only lines with quantity > 0
- * end up on the order.
+ * end up on the order. Also documents the "send" leg of the round trip to
+ * AEMP - the paper form's "Datum"/"Name" fields, plus a photo of the
+ * material being sent (same evidentiary pattern as the "Ausgang aus AEMP"
+ * confirmation on the detail page).
  */
 export function NewStationOrderPage() {
   const navigate = useNavigate();
@@ -30,6 +38,9 @@ export function NewStationOrderPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [priority, setPriority] = useState<AufbereitungsPrioritaet>('48h');
   const [note, setNote] = useState('');
+  const [orderDate, setOrderDate] = useState(today());
+  const [senderName, setSenderName] = useState('');
+  const [sendPhoto, setSendPhoto] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +50,10 @@ export function NewStationOrderPage() {
       setStationId((current) => current || list[0]?.id || '');
     });
   }, []);
+
+  useEffect(() => {
+    setSenderName((current) => current || performedBy);
+  }, [performedBy]);
 
   useEffect(() => {
     if (!stationId) {
@@ -60,7 +75,7 @@ export function NewStationOrderPage() {
   }, [items]);
 
   const selectedCount = Object.values(quantities).reduce((sum, q) => sum + q, 0);
-  const canSubmit = selectedCount > 0 && stationId && !saving;
+  const canSubmit = selectedCount > 0 && stationId && orderDate && senderName.trim() && sendPhoto && !saving;
 
   const adjustQuantity = (itemId: string, delta: number) => {
     setQuantities((prev) => {
@@ -87,6 +102,9 @@ export function NewStationOrderPage() {
         priority,
         lines,
         note: note.trim() || null,
+        orderDate,
+        senderName: senderName.trim(),
+        sendPhotoUrl: sendPhoto!,
         orderedBy: performedBy,
       });
       await dataProvider.appendAuditEntry({
@@ -126,6 +144,30 @@ export function NewStationOrderPage() {
             </select>
           </label>
         )}
+
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">Datum</span>
+            <input
+              type="date"
+              value={orderDate}
+              onChange={(e) => setOrderDate(e.target.value)}
+              className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Name (bitte leserlich)
+            </span>
+            <input
+              type="text"
+              value={senderName}
+              onChange={(e) => setSenderName(e.target.value)}
+              placeholder="Vorname Nachname"
+              className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            />
+          </label>
+        </div>
 
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Aufbereitung</p>
         <div className="mb-4 flex rounded-xl bg-ink-100 p-1 text-sm font-medium">
@@ -192,6 +234,31 @@ export function NewStationOrderPage() {
             className="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
           />
         </label>
+
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
+          Foto des Materials vor dem Versand
+        </p>
+        {!sendPhoto && (
+          <div className="mb-4">
+            <CameraCapture onCapture={setSendPhoto} />
+          </div>
+        )}
+        {sendPhoto && (
+          <div className="mb-4">
+            <div className="overflow-hidden rounded-2xl bg-ink-900">
+              <img src={sendPhoto} alt="Material vor dem Versand" className="w-full object-contain" />
+            </div>
+            <Button
+              variant="secondary"
+              size="md"
+              icon={<RotateCcw size={16} />}
+              className="mt-2"
+              onClick={() => setSendPhoto(null)}
+            >
+              Neu fotografieren
+            </Button>
+          </div>
+        )}
 
         {error && <p className="mb-3 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
 

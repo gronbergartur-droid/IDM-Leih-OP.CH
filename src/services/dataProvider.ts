@@ -126,11 +126,17 @@ export interface DataProvider {
   getStationOrder(id: string): Promise<StationOrder | null>;
   createStationOrder(input: StationOrderInput): Promise<StationOrder>;
   /**
-   * Confirms "Ausgang aus AEMP": the ordered material has actually been
-   * handed over, documented with a photo rather than trusted on word alone
-   * (same pattern as notifySupplierReady's hygiene-passport photo).
+   * Confirms "Ausgang aus AEMP": the reprocessed material has actually been
+   * handed over, documented with a photo and the confirming AEMP staff
+   * member's name rather than trusted on word alone (same pattern as
+   * notifySupplierReady's hygiene-passport photo).
    */
-  fulfillStationOrder(id: string, exitPhotoUrl: string, fulfilledBy: string): Promise<StationOrder>;
+  fulfillStationOrder(
+    id: string,
+    exitPhotoUrl: string,
+    fulfilledByName: string,
+    fulfilledBy: string,
+  ): Promise<StationOrder>;
 
   /** The authenticated caller's own profile (role, active status), or null if not signed in / not provisioned yet. */
   getCurrentProfile(): Promise<UserProfile | null>;

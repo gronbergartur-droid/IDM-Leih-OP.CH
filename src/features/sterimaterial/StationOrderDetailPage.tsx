@@ -22,8 +22,13 @@ export function StationOrderDetailPage() {
   const [station, setStation] = useState<Station | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [exitPhoto, setExitPhoto] = useState<string | null>(null);
+  const [confirmerName, setConfirmerName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setConfirmerName((current) => current || performedBy);
+  }, [performedBy]);
 
   useEffect(() => {
     if (!orderId) return;
@@ -48,11 +53,11 @@ export function StationOrderDetailPage() {
   }, [order]);
 
   const handleConfirmExit = async () => {
-    if (!orderId || !exitPhoto) return;
+    if (!orderId || !exitPhoto || !confirmerName.trim()) return;
     setSaving(true);
     setError(null);
     try {
-      const updated = await dataProvider.fulfillStationOrder(orderId, exitPhoto, performedBy);
+      const updated = await dataProvider.fulfillStationOrder(orderId, exitPhoto, confirmerName.trim(), performedBy);
       await dataProvider.appendAuditEntry({
         id: crypto.randomUUID(),
         entityType: 'station_order',
@@ -102,6 +107,18 @@ export function StationOrderDetailPage() {
           <span className="text-xs text-ink-500">bestellt von {order.orderedBy}</span>
         </div>
 
+        <Card className="mb-4 p-3.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">An AEMP gesendet</p>
+          <p className="mt-1 text-sm text-ink-700">
+            {order.senderName} · {formatDateOnly(order.orderDate)}
+          </p>
+          {order.sendPhotoUrl && (
+            <div className="mt-3 overflow-hidden rounded-xl bg-ink-900">
+              <img src={order.sendPhotoUrl} alt="Material vor dem Versand" className="w-full object-contain" />
+            </div>
+          )}
+        </Card>
+
         {order.note && (
           <Card className="mb-4 p-3.5">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Bemerkung</p>
@@ -127,7 +144,7 @@ export function StationOrderDetailPage() {
           <Card className="mt-2 p-3.5">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Ausgang aus AEMP bestätigt</p>
             <p className="mt-1 text-sm text-ink-700">
-              {order.fulfilledBy} · {order.fulfilledAt && formatDate(order.fulfilledAt)}
+              {order.fulfilledByName} · {order.fulfilledAt && formatDate(order.fulfilledAt)}
             </p>
             {order.exitPhotoUrl && (
               <div className="mt-3 overflow-hidden rounded-xl bg-ink-900">
@@ -148,6 +165,18 @@ export function StationOrderDetailPage() {
             <p className="mb-3 text-sm text-ink-600">
               Foto des ausgegebenen Materials aufnehmen, bevor es die AEMP verlässt.
             </p>
+            <label className="mb-3 block">
+              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                Name (bitte leserlich)
+              </span>
+              <input
+                type="text"
+                value={confirmerName}
+                onChange={(e) => setConfirmerName(e.target.value)}
+                placeholder="Vorname Nachname"
+                className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+            </label>
             {!exitPhoto && <CameraCapture onCapture={setExitPhoto} />}
             {exitPhoto && (
               <>
@@ -165,7 +194,13 @@ export function StationOrderDetailPage() {
                   >
                     Neu fotografieren
                   </Button>
-                  <Button size="lg" fullWidth icon={<Check size={18} />} onClick={handleConfirmExit} disabled={saving}>
+                  <Button
+                    size="lg"
+                    fullWidth
+                    icon={<Check size={18} />}
+                    onClick={handleConfirmExit}
+                    disabled={saving || !confirmerName.trim()}
+                  >
                     {saving ? 'Wird gespeichert …' : 'Bestätigen'}
                   </Button>
                 </div>
@@ -185,5 +220,13 @@ function formatDate(iso: string): string {
     year: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+  });
+}
+
+function formatDateOnly(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString('de-CH', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
   });
 }

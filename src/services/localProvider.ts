@@ -485,9 +485,13 @@ export class LocalDataProvider implements DataProvider {
       lines: input.lines,
       note: input.note,
       status: 'open',
+      orderDate: input.orderDate,
+      senderName: input.senderName,
+      sendPhotoUrl: input.sendPhotoUrl,
       orderedBy: input.orderedBy,
       orderedAt: new Date().toISOString(),
       exitPhotoUrl: null,
+      fulfilledByName: null,
       fulfilledBy: null,
       fulfilledAt: null,
     };
@@ -496,13 +500,19 @@ export class LocalDataProvider implements DataProvider {
     return order;
   }
 
-  async fulfillStationOrder(id: string, exitPhotoUrl: string, fulfilledBy: string): Promise<StationOrder> {
+  async fulfillStationOrder(
+    id: string,
+    exitPhotoUrl: string,
+    fulfilledByName: string,
+    fulfilledBy: string,
+  ): Promise<StationOrder> {
     const existing = this.stationOrders.find((o) => o.id === id);
     if (!existing) throw new Error('Bestellung nicht gefunden.');
     const updated: StationOrder = {
       ...existing,
       status: 'fulfilled',
       exitPhotoUrl,
+      fulfilledByName,
       fulfilledBy,
       fulfilledAt: new Date().toISOString(),
     };

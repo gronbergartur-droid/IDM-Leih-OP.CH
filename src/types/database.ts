@@ -397,10 +397,13 @@ export interface StationOrderLine {
 export type StationOrderStatus = 'open' | 'fulfilled';
 
 /**
- * A station's request for sterile material from AEMP. Stays 'open' until
- * AEMP hands the material over, which is confirmed with a photo ("Ausgang
- * aus AEMP") rather than trusted on word alone - same evidentiary pattern
- * as LoanCase.hygienePassportPhotoUrl.
+ * A round trip between a station and AEMP: the station sends used
+ * instruments/material to AEMP for reprocessing (documented with a photo
+ * and the sender's name, same as the paper form's "Datum"/"Name" fields),
+ * and stays 'open' until AEMP hands the reprocessed material back, which is
+ * confirmed with a photo ("Ausgang aus AEMP") and the confirming AEMP staff
+ * member's name - neither leg is trusted on word alone, same evidentiary
+ * pattern as LoanCase.hygienePassportPhotoUrl.
  */
 export interface StationOrder {
   id: UUID;
@@ -409,10 +412,18 @@ export interface StationOrder {
   lines: StationOrderLine[];
   note: string | null;
   status: StationOrderStatus;
+  /** Date the material was sent to AEMP - editable (paper form's "Datum" field), defaults to today. */
+  orderDate: ISODateString;
+  /** Name/surname of whoever physically sent the material - a free-text field matching the paper form's "Name", separate from the tamper-evident orderedBy login identity. */
+  senderName: string;
+  /** Photo of the material being sent to AEMP, taken at order creation. */
+  sendPhotoUrl: string;
   orderedBy: string;
   orderedAt: ISODateString;
-  /** Photo taken when the material actually leaves AEMP - proof of handover. */
+  /** Photo taken when the reprocessed material actually leaves AEMP - proof of handover. */
   exitPhotoUrl: string | null;
+  /** Name/surname of the AEMP staff member confirming the handover - free text, separate from the tamper-evident fulfilledBy login identity. */
+  fulfilledByName: string | null;
   fulfilledBy: string | null;
   fulfilledAt: ISODateString | null;
 }
@@ -422,6 +433,9 @@ export interface StationOrderInput {
   priority: AufbereitungsPrioritaet;
   lines: StationOrderLine[];
   note: string | null;
+  orderDate: ISODateString;
+  senderName: string;
+  sendPhotoUrl: string;
   orderedBy: string;
 }
 
