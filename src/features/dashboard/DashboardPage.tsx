@@ -8,6 +8,7 @@ import {
   GitCompareArrows,
   Layers,
   Package,
+  PackageCheck,
   PackageOpen,
   ScanLine,
   ShieldCheck,
@@ -53,7 +54,13 @@ const modules = [
     to: '/sterimaterial',
     icon: Package,
     title: 'Sterimaterial-Bestellung',
-    description: 'Material bei der AEMP bestellen und Ausgang bestätigen',
+    description: 'Bestellungen der Stationen bei der AEMP',
+  },
+  {
+    to: '/sterimaterial/ausgabe',
+    icon: PackageCheck,
+    title: 'Ausgabe AEMP',
+    description: 'Offene Bestellungen bestätigen und Material ausgeben',
   },
 ];
 

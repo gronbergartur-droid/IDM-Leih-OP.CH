@@ -19,6 +19,7 @@ import { EditTrayPage } from '@/features/trays/EditTrayPage';
 import { RepairDetailPage } from '@/features/repair/RepairDetailPage';
 import { ReportRepairFlow } from '@/features/repair/ReportRepairFlow';
 import { RepairsPage } from '@/features/repair/RepairsPage';
+import { AempAusgabePage } from '@/features/sterimaterial/AempAusgabePage';
 import { NewStationOrderPage } from '@/features/sterimaterial/NewStationOrderPage';
 import { StationOrderDetailPage } from '@/features/sterimaterial/StationOrderDetailPage';
 import { StationOrdersPage } from '@/features/sterimaterial/StationOrdersPage';
@@ -103,6 +104,7 @@ function App() {
         <Route path="/reparaturen/:repairId" element={<RepairDetailPage />} />
         <Route path="/sterimaterial" element={<StationOrdersPage />} />
         <Route path="/sterimaterial/bestellen" element={<NewStationOrderPage />} />
+        <Route path="/sterimaterial/ausgabe" element={<AempAusgabePage />} />
         <Route path="/sterimaterial/:orderId" element={<StationOrderDetailPage />} />
         <Route
           path="/analytics"
