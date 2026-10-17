@@ -499,7 +499,6 @@ export class SupabaseDataProvider implements DataProvider {
         lines: input.lines,
         note: input.note,
         order_date: input.orderDate,
-        sender_name: input.senderName,
         send_photo_url: input.sendPhotoUrl,
         ordered_by: input.orderedBy,
       })
@@ -509,18 +508,12 @@ export class SupabaseDataProvider implements DataProvider {
     return mapStationOrderRow(data);
   }
 
-  async fulfillStationOrder(
-    id: string,
-    exitPhotoUrl: string,
-    fulfilledByName: string,
-    fulfilledBy: string,
-  ): Promise<StationOrder> {
+  async fulfillStationOrder(id: string, exitPhotoUrl: string, fulfilledBy: string): Promise<StationOrder> {
     const { data, error } = await this.client
       .from('station_orders')
       .update({
         status: 'fulfilled',
         exit_photo_url: exitPhotoUrl,
-        fulfilled_by_name: fulfilledByName,
         fulfilled_by: fulfilledBy,
         fulfilled_at: new Date().toISOString(),
       })
@@ -837,12 +830,10 @@ function mapStationOrderRow(row: any): StationOrder {
     note: row.note,
     status: row.status,
     orderDate: row.order_date,
-    senderName: row.sender_name,
     sendPhotoUrl: row.send_photo_url,
     orderedBy: row.ordered_by,
     orderedAt: row.ordered_at,
     exitPhotoUrl: row.exit_photo_url,
-    fulfilledByName: row.fulfilled_by_name,
     fulfilledBy: row.fulfilled_by,
     fulfilledAt: row.fulfilled_at,
   };

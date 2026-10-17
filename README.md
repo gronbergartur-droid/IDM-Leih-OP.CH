@@ -562,26 +562,28 @@ Notfallstation" der Spital Schwyz AEMP/Zentralsterilisation (Druckdatum
 28.10.2025): eine Station wählt aus einer nach Kategorie gruppierten
 Checkliste (~40 Artikel, Mengenangabe per Stepper statt Strichliste),
 vergibt eine Aufbereitungs-Priorität und sendet das Material an die AEMP.
-Beide Richtungen des Rundlaufs sind mit Foto + Name dokumentiert, nicht
-allein auf Zuruf: beim **Versand an die AEMP** (Formularfelder „Datum"/
-„Name" plus ein Foto des Materials vor dem Versand) und beim **Ausgang aus
-der AEMP** (Foto + Name der AEMP-Person, die das aufbereitete Material
-übergibt) – jeweils über `src/features/scanner/CameraCapture.tsx`, dieselbe
-Komponente wie beim Hygiene-Pass unter „Sieb-Bereitschaft nach
-Sterilisation" oben.
+Beide Richtungen des Rundlaufs sind mit einem Foto dokumentiert, nicht
+allein auf Zuruf: beim **Versand an die AEMP** (Formularfeld „Datum" plus
+ein Foto des Materials vor dem Versand) und beim **Ausgang aus der AEMP**
+(Foto des aufbereiteten Materials bei der Übergabe) – jeweils über
+`src/features/scanner/CameraCapture.tsx`, dieselbe Komponente wie beim
+Hygiene-Pass unter „Sieb-Bereitschaft nach Sterilisation" oben. Das
+Formularfeld „Name" wird nicht separat erfasst, sondern ergibt sich aus der
+angemeldeten Person (`orderedBy`/`fulfilledBy`) – kein zusätzliches
+Freitextfeld nötig, da die Registrierung über ein Benutzerkonto läuft.
 
 - **Bestellungen** (`/sterimaterial`) – Liste aller Bestellungen mit
   Station, Artikelzahl, Priorität, Datum und Status (`offen` /
   `abgeschlossen`).
 - **Neue Bestellung** (`/sterimaterial/bestellen`) – Stations-Auswahl (nur
   sichtbar, sobald mehr als eine Station existiert), Datum (vorbelegt mit
-  heute, editierbar – Kalender-Input), Name der sendenden Person,
-  Prioritäts-Auswahl (Express / 24 Std. / 48 Std.), nach Kategorie
-  gruppierte Checkliste mit Mengen-Stepper pro Artikel, optionale
-  Bemerkung, Foto des Materials vor dem Versand (Pflicht, Kamera).
-- **Bestelldetail** (`/sterimaterial/:orderId`) – zeigt Versand-Datum, Name
-  und Foto sowie die bestellten Positionen nach Kategorie; solange offen,
-  kann der Ausgang aus der AEMP per Name + Foto bestätigt werden
+  heute, editierbar – Kalender-Input), Prioritäts-Auswahl (Express /
+  24 Std. / 48 Std.), nach Kategorie gruppierte Checkliste mit
+  Mengen-Stepper pro Artikel, optionale Bemerkung, Foto des Materials vor
+  dem Versand (Pflicht, Kamera).
+- **Bestelldetail** (`/sterimaterial/:orderId`) – zeigt Versand-Datum und
+  -Foto sowie die bestellten Positionen nach Kategorie; solange offen, kann
+  der Ausgang aus der AEMP per Foto bestätigt werden
   (`fulfillStationOrder`), danach erscheinen beide Bestätigungen auf der
   Detailseite.
 - **Stationen & Artikel-Stammdaten** (`stations`/`station_material_items`,

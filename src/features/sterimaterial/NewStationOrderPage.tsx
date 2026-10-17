@@ -25,9 +25,11 @@ function today(): string {
  * stepper instead of tally marks), plus an Aufbereitung priority the paper
  * form doesn't capture digitally on its own. Only lines with quantity > 0
  * end up on the order. Also documents the "send" leg of the round trip to
- * AEMP - the paper form's "Datum"/"Name" fields, plus a photo of the
- * material being sent (same evidentiary pattern as the "Ausgang aus AEMP"
- * confirmation on the detail page).
+ * AEMP - the paper form's "Datum" field, plus a photo of the material
+ * being sent (same evidentiary pattern as the "Ausgang aus AEMP"
+ * confirmation on the detail page). The paper form's "Name" field is
+ * covered by the logged-in account's identity (orderedBy) instead of a
+ * separate manual field.
  */
 export function NewStationOrderPage() {
   const navigate = useNavigate();
@@ -39,7 +41,6 @@ export function NewStationOrderPage() {
   const [priority, setPriority] = useState<AufbereitungsPrioritaet>('48h');
   const [note, setNote] = useState('');
   const [orderDate, setOrderDate] = useState(today());
-  const [senderName, setSenderName] = useState('');
   const [sendPhoto, setSendPhoto] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,10 +51,6 @@ export function NewStationOrderPage() {
       setStationId((current) => current || list[0]?.id || '');
     });
   }, []);
-
-  useEffect(() => {
-    setSenderName((current) => current || performedBy);
-  }, [performedBy]);
 
   useEffect(() => {
     if (!stationId) {
@@ -75,7 +72,7 @@ export function NewStationOrderPage() {
   }, [items]);
 
   const selectedCount = Object.values(quantities).reduce((sum, q) => sum + q, 0);
-  const canSubmit = selectedCount > 0 && stationId && orderDate && senderName.trim() && sendPhoto && !saving;
+  const canSubmit = selectedCount > 0 && stationId && orderDate && sendPhoto && !saving;
 
   const adjustQuantity = (itemId: string, delta: number) => {
     setQuantities((prev) => {
@@ -103,7 +100,6 @@ export function NewStationOrderPage() {
         lines,
         note: note.trim() || null,
         orderDate,
-        senderName: senderName.trim(),
         sendPhotoUrl: sendPhoto!,
         orderedBy: performedBy,
       });
@@ -145,29 +141,15 @@ export function NewStationOrderPage() {
           </label>
         )}
 
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">Datum</span>
-            <input
-              type="date"
-              value={orderDate}
-              onChange={(e) => setOrderDate(e.target.value)}
-              className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Name (bitte leserlich)
-            </span>
-            <input
-              type="text"
-              value={senderName}
-              onChange={(e) => setSenderName(e.target.value)}
-              placeholder="Vorname Nachname"
-              className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            />
-          </label>
-        </div>
+        <label className="mb-4 block">
+          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">Datum</span>
+          <input
+            type="date"
+            value={orderDate}
+            onChange={(e) => setOrderDate(e.target.value)}
+            className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          />
+        </label>
 
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Aufbereitung</p>
         <div className="mb-4 flex rounded-xl bg-ink-100 p-1 text-sm font-medium">
