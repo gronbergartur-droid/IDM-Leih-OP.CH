@@ -23,6 +23,7 @@ import { AempAusgabePage } from '@/features/sterimaterial/AempAusgabePage';
 import { NewStationOrderPage } from '@/features/sterimaterial/NewStationOrderPage';
 import { StationOrderDetailPage } from '@/features/sterimaterial/StationOrderDetailPage';
 import { StationOrdersPage } from '@/features/sterimaterial/StationOrdersPage';
+import { SterimaterialArchivPage } from '@/features/sterimaterial/SterimaterialArchivPage';
 import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
@@ -105,6 +106,7 @@ function App() {
         <Route path="/sterimaterial" element={<StationOrdersPage />} />
         <Route path="/sterimaterial/bestellen" element={<NewStationOrderPage />} />
         <Route path="/sterimaterial/ausgabe" element={<AempAusgabePage />} />
+        <Route path="/sterimaterial/archiv" element={<SterimaterialArchivPage />} />
         <Route path="/sterimaterial/:orderId" element={<StationOrderDetailPage />} />
         <Route
           path="/analytics"
