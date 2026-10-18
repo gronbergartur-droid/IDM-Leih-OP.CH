@@ -576,9 +576,13 @@ Getrennte Sicht für die beiden Seiten des Rundlaufs, da unterschiedliche
 Personen betroffen sind: Stationen bestellen und verfolgen ihre eigenen
 Bestellungen, AEMP sieht nur die eigene Warteschlange offener Bestellungen.
 
-- **Bestellungen** (`/sterimaterial`) – Stations-Sicht: Liste aller eigenen
-  Bestellungen (offen und abgeschlossen) mit Station, Artikelzahl,
-  Priorität, Datum und Status, plus der Einstieg in „Neue Bestellung".
+- **Bestellungen** (`/sterimaterial`) – Stations-Sicht: Liste der eigenen
+  Bestellungen (offen, plus abgeschlossene der letzten 24 Std.) mit
+  Station, Artikelzahl, Priorität, Datum und Status, plus der Einstieg in
+  „Neue Bestellung". Abgeschlossene Bestellungen verschwinden 24 Std. nach
+  Ausgang aus der AEMP von dieser Liste und erscheinen stattdessen im
+  Archiv (`isArchived` in `StationOrdersPage.tsx`) – die Liste wächst so
+  nicht unbegrenzt weiter.
 - **Neue Bestellung** (`/sterimaterial/bestellen`) – Stations-Auswahl (nur
   sichtbar, sobald mehr als eine Station existiert), Datum (vorbelegt mit
   heute, editierbar – Kalender-Input), Prioritäts-Auswahl (Express /
@@ -593,8 +597,10 @@ Bestellungen, AEMP sieht nur die eigene Warteschlange offener Bestellungen.
   erreichbar; zeigt Versand-Datum und -Foto sowie die bestellten
   Positionen nach Kategorie; solange offen, kann der Ausgang aus der AEMP
   per Foto bestätigt werden (`fulfillStationOrder`), danach erscheinen
-  beide Bestätigungen auf der
-  Detailseite.
+  beide Bestätigungen auf der Detailseite.
+- **Archiv** (`/sterimaterial/archiv`) – Bestellungen, die vor mehr als
+  24 Std. abgeschlossen wurden, gruppiert nach Monat (neuester Monat
+  zuerst), optional nach Station gefiltert.
 - **Stationen & Artikel-Stammdaten** (`stations`/`station_material_items`,
   `supabase/migrations/0015_station_orders.sql` +
   `0016_additional_stations.sql`) – wie Lieferanten/Sieb-Referenzen/

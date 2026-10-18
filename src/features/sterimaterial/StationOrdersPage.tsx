@@ -4,9 +4,16 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { dataProvider } from '@/services';
 import { AUFBEREITUNG_PRIORITAET_LABELS, type Station, type StationOrder } from '@/types/database';
-import { Package, Plus } from 'lucide-react';
+import { Archive, Package, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+
+const ARCHIVE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+/** Fulfilled more than 24h ago - belongs in the Archiv, not the active list. */
+export function isArchived(order: StationOrder): boolean {
+  return order.status === 'fulfilled' && !!order.fulfilledAt && Date.now() - new Date(order.fulfilledAt).getTime() > ARCHIVE_AFTER_MS;
+}
 
 /**
  * Digital version of the AEMP paper "Bestellung Sterimaterial" form - the
@@ -15,7 +22,9 @@ import { Link } from 'react-router-dom';
  * they've placed, open or fulfilled. AEMP's own queue of open orders to
  * process lives separately (see AempAusgabePage); both link into the same
  * StationOrderDetailPage, where the "Ausgang aus AEMP" photo confirmation
- * happens - never just a status flip on word alone.
+ * happens - never just a status flip on word alone. Fulfilled orders stay
+ * on this active list for 24h, then move to the Archiv (see
+ * SterimaterialArchivPage) so this list doesn't keep growing forever.
  */
 export function StationOrdersPage() {
   const [orders, setOrders] = useState<StationOrder[] | null>(null);
@@ -28,11 +37,12 @@ export function StationOrdersPage() {
     });
   }, []);
 
-  const openCount = orders?.filter((o) => o.status === 'open').length ?? 0;
+  const activeOrders = orders?.filter((o) => !isArchived(o)) ?? null;
+  const openCount = activeOrders?.filter((o) => o.status === 'open').length ?? 0;
 
   return (
     <div>
-      <TopBar title="Sterimaterial-Bestellung" subtitle={orders ? `${openCount} offen` : undefined} />
+      <TopBar title="Sterimaterial-Bestellung" subtitle={activeOrders ? `${openCount} offen` : undefined} />
 
       <div className="px-4 py-4">
         <Link to="/sterimaterial/bestellen" className="block">
@@ -41,9 +51,14 @@ export function StationOrdersPage() {
           </Button>
         </Link>
 
-        {orders === null && <p className="py-10 text-center text-sm text-ink-400">Wird geladen …</p>}
+        <Link to="/sterimaterial/archiv" className="mt-2 mb-4 flex items-center justify-center gap-1.5 text-xs text-ink-500 underline-offset-2 active:underline">
+          <Archive size={14} />
+          Archiv (abgeschlossen, älter als 24 Std.)
+        </Link>
 
-        {orders !== null && orders.length === 0 && (
+        {activeOrders === null && <p className="py-10 text-center text-sm text-ink-400">Wird geladen …</p>}
+
+        {activeOrders !== null && activeOrders.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
               <Package size={26} />
@@ -52,8 +67,8 @@ export function StationOrdersPage() {
           </div>
         )}
 
-        <div className="mt-4 space-y-2.5">
-          {orders?.map((order) => {
+        <div className="space-y-2.5">
+          {activeOrders?.map((order) => {
             const station = stations.find((s) => s.id === order.stationId);
             const itemCount = order.lines.reduce((sum, l) => sum + l.quantity, 0);
             return (
