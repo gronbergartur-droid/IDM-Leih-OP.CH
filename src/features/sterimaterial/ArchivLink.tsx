@@ -9,7 +9,7 @@ export function ArchivLink({ className = '' }: { className?: string }) {
       className={`flex items-center justify-center gap-1.5 text-xs text-ink-500 underline-offset-2 active:underline ${className}`}
     >
       <Archive size={14} />
-      Archiv (abgeschlossen, älter als 24 Std.)
+      Archiv (abgeschlossen, ab Mitternacht nach Ausgang)
     </Link>
   );
 }
