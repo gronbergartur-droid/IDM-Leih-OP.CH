@@ -4,15 +4,22 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { dataProvider } from '@/services';
 import { AUFBEREITUNG_PRIORITAET_LABELS, type Station, type StationOrder } from '@/types/database';
-import { Archive, Package, Plus } from 'lucide-react';
+import { Package, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArchivLink } from './ArchivLink';
 
-const ARCHIVE_AFTER_MS = 24 * 60 * 60 * 1000;
-
-/** Fulfilled more than 24h ago - belongs in the Archiv, not the active list. */
+/**
+ * Fulfilled orders move to the Archiv at the midnight that starts the day
+ * after they were fulfilled - not a rolling 24h window - so the active
+ * list empties out predictably once a day instead of items dropping off
+ * one by one through the day.
+ */
 export function isArchived(order: StationOrder): boolean {
-  return order.status === 'fulfilled' && !!order.fulfilledAt && Date.now() - new Date(order.fulfilledAt).getTime() > ARCHIVE_AFTER_MS;
+  if (order.status !== 'fulfilled' || !order.fulfilledAt) return false;
+  const fulfilled = new Date(order.fulfilledAt);
+  const archivedFrom = new Date(fulfilled.getFullYear(), fulfilled.getMonth(), fulfilled.getDate() + 1);
+  return Date.now() >= archivedFrom.getTime();
 }
 
 /**
@@ -23,8 +30,9 @@ export function isArchived(order: StationOrder): boolean {
  * process lives separately (see AempAusgabePage); both link into the same
  * StationOrderDetailPage, where the "Ausgang aus AEMP" photo confirmation
  * happens - never just a status flip on word alone. Fulfilled orders stay
- * on this active list for 24h, then move to the Archiv (see
- * SterimaterialArchivPage) so this list doesn't keep growing forever.
+ * on this active list until midnight after the day they were fulfilled,
+ * then move to the Archiv (see SterimaterialArchivPage) so this list
+ * doesn't keep growing forever.
  */
 export function StationOrdersPage() {
   const [orders, setOrders] = useState<StationOrder[] | null>(null);
@@ -51,10 +59,7 @@ export function StationOrdersPage() {
           </Button>
         </Link>
 
-        <Link to="/sterimaterial/archiv" className="mt-2 mb-4 flex items-center justify-center gap-1.5 text-xs text-ink-500 underline-offset-2 active:underline">
-          <Archive size={14} />
-          Archiv (abgeschlossen, älter als 24 Std.)
-        </Link>
+        <ArchivLink className="mt-2 mb-4" />
 
         {activeOrders === null && <p className="py-10 text-center text-sm text-ink-400">Wird geladen …</p>}
 

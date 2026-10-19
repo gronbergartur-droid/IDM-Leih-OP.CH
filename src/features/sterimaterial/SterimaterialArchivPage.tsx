@@ -3,21 +3,28 @@ import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { dataProvider } from '@/services';
 import { AUFBEREITUNG_PRIORITAET_LABELS, type Station, type StationOrder } from '@/types/database';
-import { Archive, Package } from 'lucide-react';
+import { Archive, Package, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { isArchived } from './StationOrdersPage';
 
+interface LightboxPhoto {
+  url: string;
+  label: string;
+}
+
 /**
- * Fulfilled orders older than 24h (see isArchived in StationOrdersPage),
- * grouped by month and optionally filtered to one station - keeps the
- * active Sterimaterial-Bestellung list from growing forever while still
- * letting a station look up what it ordered in a given month.
+ * Fulfilled orders past the midnight archival cutoff (see isArchived in
+ * StationOrdersPage), grouped by month and optionally filtered to one
+ * station - keeps the active Sterimaterial-Bestellung list from growing
+ * forever while still letting a station look up what it ordered in a
+ * given month.
  */
 export function SterimaterialArchivPage() {
   const [orders, setOrders] = useState<StationOrder[] | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
   const [stationFilter, setStationFilter] = useState('');
+  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhoto | null>(null);
 
   useEffect(() => {
     Promise.all([dataProvider.getStationOrders(), dataProvider.getStations()]).then(([orderList, stationList]) => {
@@ -74,7 +81,7 @@ export function SterimaterialArchivPage() {
             </div>
             <p className="text-sm font-medium text-ink-700">Noch nichts im Archiv</p>
             <p className="max-w-[220px] text-xs text-ink-500">
-              Abgeschlossene Bestellungen erscheinen hier 24 Stunden nach Ausgang aus der AEMP.
+              Abgeschlossene Bestellungen erscheinen hier ab Mitternacht nach dem Tag der Ausgabe.
             </p>
           </div>
         )}
@@ -87,8 +94,8 @@ export function SterimaterialArchivPage() {
                 const station = stations.find((s) => s.id === order.stationId);
                 const itemCount = order.lines.reduce((sum, l) => sum + l.quantity, 0);
                 return (
-                  <Link key={order.id} to={`/sterimaterial/${order.id}`} className="block">
-                    <Card className="flex items-center gap-3 p-3.5 active:bg-ink-50">
+                  <Card key={order.id} className="p-3.5">
+                    <Link to={`/sterimaterial/${order.id}`} className="flex items-center gap-3 active:opacity-70">
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-ink-100 text-ink-500">
                         <Package size={20} />
                       </div>
@@ -99,15 +106,69 @@ export function SterimaterialArchivPage() {
                         </p>
                       </div>
                       <Badge tone="success">Abgeschlossen</Badge>
-                    </Card>
-                  </Link>
+                    </Link>
+
+                    {(order.sendPhotoUrl || order.exitPhotoUrl) && (
+                      <div className="mt-3 flex gap-2 border-t border-ink-100 pt-3">
+                        {order.sendPhotoUrl && (
+                          <PhotoThumbnail
+                            url={order.sendPhotoUrl}
+                            label="Material vor dem Versand"
+                            onOpen={setLightboxPhoto}
+                          />
+                        )}
+                        {order.exitPhotoUrl && (
+                          <PhotoThumbnail url={order.exitPhotoUrl} label="Ausgang aus AEMP" onOpen={setLightboxPhoto} />
+                        )}
+                      </div>
+                    )}
+                  </Card>
                 );
               })}
             </div>
           </div>
         ))}
       </div>
+
+      {lightboxPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/90 p-4"
+          onClick={() => setLightboxPhoto(null)}
+        >
+          <div className="flex items-center justify-between text-sm text-white">
+            <span>{lightboxPhoto.label}</span>
+            <button
+              type="button"
+              aria-label="Schliessen"
+              onClick={() => setLightboxPhoto(null)}
+              className="rounded-full p-1.5 active:bg-white/10"
+            >
+              <X size={22} />
+            </button>
+          </div>
+          <div className="flex flex-1 items-center justify-center">
+            <img src={lightboxPhoto.url} alt={lightboxPhoto.label} className="max-h-full max-w-full object-contain" />
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function PhotoThumbnail({ url, label, onOpen }: { url: string; label: string; onOpen: (photo: LightboxPhoto) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onOpen({ url, label });
+      }}
+      className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-ink-900"
+      aria-label={label}
+    >
+      <img src={url} alt={label} className="h-full w-full object-cover" />
+    </button>
   );
 }
 

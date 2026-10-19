@@ -6,6 +6,7 @@ import { AUFBEREITUNG_PRIORITAET_LABELS, type Station, type StationOrder } from 
 import { PackageCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArchivLink } from './ArchivLink';
 
 /**
  * AEMP's own queue: only open orders waiting for "Ausgang aus AEMP" (see
@@ -29,6 +30,8 @@ export function AempAusgabePage() {
       <TopBar title="Ausgabe AEMP" subtitle={orders ? `${orders.length} offen` : undefined} />
 
       <div className="px-4 py-4">
+        <ArchivLink className="mb-4" />
+
         {orders === null && <p className="py-10 text-center text-sm text-ink-400">Wird geladen …</p>}
 
         {orders !== null && orders.length === 0 && (
