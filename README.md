@@ -213,13 +213,17 @@ ein echtes Supabase-Projekt angepasst werden muss.
 - **Benutzerverwaltung** (`/benutzer`, nur Admins) – Konten freischalten,
   Rollen zuweisen, Lieferanten-Konten verknüpfen. Siehe
   „Authentifizierung & Rollen" unten.
-- **Archiv** (`/archiv`, Admins und OP-Leitung) – lädt pro Monat ein
-  ZIP mit Lieferanten, Sieb-Referenzen, Sieb-Fällen, Scans (Eingang/
-  Ausgang/Kontrolle), Hygiene-Pass-Fotos und Audit-Log als zweite,
-  lokale Kopie herunter – für die in der Schweiz üblichen 10 Jahre
-  Aufbewahrungspflicht. Die Daten in Supabase bleiben davon unberührt
-  (keine Löschung); siehe `src/features/archive/generateMonthlyArchive.ts`
-  für den genauen ZIP-Aufbau.
+- **Archiv** (`/archiv`, Admins und OP-Leitung) – zwei Bereiche, je ein
+  Tab: **Leih System** (Lieferanten, Sieb-Referenzen, Sieb-Fälle, Scans
+  Eingang/Ausgang/Kontrolle, Hygiene-Pass-Fotos, Audit-Log – siehe
+  `src/features/archive/generateMonthlyArchive.ts`) und **Station**
+  (Sterimaterial-Bestellungen mit Versand-/Ausgangs-Fotos, eigenes
+  Audit-Log – siehe `generateMonthlyStationArchive.ts`). Pro Monat und
+  Bereich: „Ansehen" zeigt die Datensätze nach Kategorie direkt in der
+  App (keine Löschfunktion – reine Einsicht), „Herunterladen" lädt ein
+  ZIP als zweite, lokale Kopie – für die in der Schweiz üblichen
+  10 Jahre Aufbewahrungspflicht. Die Daten in Supabase bleiben davon
+  unberührt (keine Löschung).
 
 ### Authentifizierung & Rollen
 

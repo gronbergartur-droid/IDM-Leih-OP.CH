@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-const ACTION_META: Record<AuditAction, { label: string; icon: typeof ShieldCheck; tone: string }> = {
+export const ACTION_META: Record<AuditAction, { label: string; icon: typeof ShieldCheck; tone: string }> = {
   scan_started: { label: 'Scan gestartet', icon: ScanSearch, tone: 'text-ink-500 bg-ink-100' },
   scan_matched: { label: 'Sieb zugeordnet', icon: CircleCheck, tone: 'text-brand-600 bg-brand-50' },
   scan_unmatched: { label: 'Kein Treffer', icon: ShieldX, tone: 'text-warning-600 bg-warning-50' },
