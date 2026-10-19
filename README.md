@@ -600,7 +600,8 @@ Bestellungen, AEMP sieht nur die eigene Warteschlange offener Bestellungen.
   beide Bestätigungen auf der Detailseite.
 - **Archiv** (`/sterimaterial/archiv`) – Bestellungen, die vor mehr als
   24 Std. abgeschlossen wurden, gruppiert nach Monat (neuester Monat
-  zuerst), optional nach Station gefiltert.
+  zuerst), optional nach Station gefiltert; von Station- und Ausgabe-AEMP-
+  Sicht aus gleichermaßen erreichbar.
 - **Stationen & Artikel-Stammdaten** (`stations`/`station_material_items`,
   `supabase/migrations/0015_station_orders.sql` +
   `0016_additional_stations.sql`) – wie Lieferanten/Sieb-Referenzen/

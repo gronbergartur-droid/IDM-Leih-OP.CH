@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { dataProvider } from '@/services';
 import { AUFBEREITUNG_PRIORITAET_LABELS, type Station, type StationOrder } from '@/types/database';
-import { Archive, Package, Plus } from 'lucide-react';
+import { Package, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArchivLink } from './ArchivLink';
 
 const ARCHIVE_AFTER_MS = 24 * 60 * 60 * 1000;
 
@@ -51,10 +52,7 @@ export function StationOrdersPage() {
           </Button>
         </Link>
 
-        <Link to="/sterimaterial/archiv" className="mt-2 mb-4 flex items-center justify-center gap-1.5 text-xs text-ink-500 underline-offset-2 active:underline">
-          <Archive size={14} />
-          Archiv (abgeschlossen, älter als 24 Std.)
-        </Link>
+        <ArchivLink className="mt-2 mb-4" />
 
         {activeOrders === null && <p className="py-10 text-center text-sm text-ink-400">Wird geladen …</p>}
 
