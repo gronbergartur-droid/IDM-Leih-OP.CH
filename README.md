@@ -207,9 +207,12 @@ ein echtes Supabase-Projekt angepasst werden muss.
 - **Audit-Log** (`/audit`) – jede Lieferanten-, Sieb- und Fall-Aktion sowie
   jede Kontroll-Bestätigung wird lückenlos mit Datum, Uhrzeit und Benutzer
   protokolliert (append-only). Einträge zu einer Sterimaterial-Bestellung
-  (Versand/Ausgang) zeigen zusätzlich das jeweilige Foto als Vorschau,
-  antippen öffnet es groß (`PhotoThumbnail`/`PhotoLightbox` in
-  `src/components/ui/`, auch von der Sterimaterial-Archiv-Seite genutzt).
+  zeigen zusätzlich die bestellten Artikelnamen sowie das jeweilige Foto
+  (Versand/Ausgang) als Vorschau, antippen öffnet es groß
+  (`PhotoThumbnail`/`PhotoLightbox` in `src/components/ui/`, auch von der
+  Sterimaterial-Archiv-Seite genutzt; `transform-gpu` auf dem Thumbnail
+  umgeht einen Chrome-Rendering-Bug, bei dem Bilder unter einem sticky
+  `backdrop-blur`-Header beim Scrollen hängen bleiben).
 - **Benutzerverwaltung** (`/benutzer`, nur Admins) – Konten freischalten,
   Rollen zuweisen, Lieferanten-Konten verknüpfen. Siehe
   „Authentifizierung & Rollen" unten.

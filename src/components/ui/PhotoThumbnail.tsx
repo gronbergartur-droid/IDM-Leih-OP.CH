@@ -15,7 +15,11 @@ export function PhotoThumbnail({ url, label, onOpen }: { url: string; label: str
         e.stopPropagation();
         onOpen({ url, label });
       }}
-      className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-ink-900"
+      // transform-gpu forces its own compositing layer - without it, Chrome on
+      // desktop can fail to repaint an <img> that scrolls under a sticky
+      // backdrop-blur header (see TopBar), leaving the thumbnail visually
+      // "stuck" in place while the rest of the list scrolls normally.
+      className="h-16 w-16 shrink-0 transform-gpu overflow-hidden rounded-lg bg-ink-900"
       aria-label={label}
     >
       <img src={url} alt={label} className="h-full w-full object-cover" />
