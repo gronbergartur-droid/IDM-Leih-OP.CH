@@ -1,7 +1,8 @@
 import { TopBar } from '@/components/layout/TopBar';
 import { Card } from '@/components/ui/Card';
+import { PhotoLightbox, PhotoThumbnail, type LightboxPhoto } from '@/components/ui/PhotoThumbnail';
 import { dataProvider } from '@/services';
-import type { AuditAction, AuditLogEntry } from '@/types/database';
+import type { AuditAction, AuditLogEntry, StationOrder } from '@/types/database';
 import {
   Archive,
   BarChart3,
@@ -54,11 +55,20 @@ const ACTION_META: Record<AuditAction, { label: string; icon: typeof ShieldCheck
   station_order_fulfilled: { label: 'Ausgang aus AEMP bestätigt', icon: PackageCheck, tone: 'text-success-600 bg-success-50' },
 };
 
+/** Audit actions whose entity carries a confirmation photo worth showing inline. */
+const PHOTO_FIELD: Partial<Record<AuditAction, keyof StationOrder>> = {
+  station_order_created: 'sendPhotoUrl',
+  station_order_fulfilled: 'exitPhotoUrl',
+};
+
 export function AuditLogPage() {
   const [entries, setEntries] = useState<AuditLogEntry[] | null>(null);
+  const [stationOrders, setStationOrders] = useState<Map<string, StationOrder>>(new Map());
+  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhoto | null>(null);
 
   useEffect(() => {
     dataProvider.getAuditLog().then(setEntries);
+    dataProvider.getStationOrders().then((orders) => setStationOrders(new Map(orders.map((o) => [o.id, o]))));
   }, []);
 
   return (
@@ -84,6 +94,8 @@ export function AuditLogPage() {
           {entries?.map((entry) => {
             const meta = ACTION_META[entry.action];
             const Icon = meta.icon;
+            const photoField = PHOTO_FIELD[entry.action];
+            const photoUrl = photoField ? (stationOrders.get(entry.entityId)?.[photoField] as string | null | undefined) : null;
             return (
               <Card key={entry.id} className="flex items-start gap-3 p-3.5">
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${meta.tone}`}>
@@ -99,11 +111,14 @@ export function AuditLogPage() {
                     <p className="mt-1 truncate text-xs text-ink-400">{formatDetails(entry.details)}</p>
                   )}
                 </div>
+                {photoUrl && <PhotoThumbnail url={photoUrl} label={meta.label} onOpen={setLightboxPhoto} />}
               </Card>
             );
           })}
         </div>
       </div>
+
+      <PhotoLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
     </div>
   );
 }
