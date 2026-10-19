@@ -1,17 +1,13 @@
 import { TopBar } from '@/components/layout/TopBar';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
+import { PhotoLightbox, PhotoThumbnail, type LightboxPhoto } from '@/components/ui/PhotoThumbnail';
 import { dataProvider } from '@/services';
 import { AUFBEREITUNG_PRIORITAET_LABELS, type Station, type StationOrder } from '@/types/database';
-import { Archive, Package, X } from 'lucide-react';
+import { Archive, Package } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { isArchived } from './StationOrdersPage';
-
-interface LightboxPhoto {
-  url: string;
-  label: string;
-}
 
 /**
  * Fulfilled orders past the midnight archival cutoff (see isArchived in
@@ -130,45 +126,8 @@ export function SterimaterialArchivPage() {
         ))}
       </div>
 
-      {lightboxPhoto && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/90 p-4"
-          onClick={() => setLightboxPhoto(null)}
-        >
-          <div className="flex items-center justify-between text-sm text-white">
-            <span>{lightboxPhoto.label}</span>
-            <button
-              type="button"
-              aria-label="Schliessen"
-              onClick={() => setLightboxPhoto(null)}
-              className="rounded-full p-1.5 active:bg-white/10"
-            >
-              <X size={22} />
-            </button>
-          </div>
-          <div className="flex flex-1 items-center justify-center">
-            <img src={lightboxPhoto.url} alt={lightboxPhoto.label} className="max-h-full max-w-full object-contain" />
-          </div>
-        </div>
-      )}
+      <PhotoLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
     </div>
-  );
-}
-
-function PhotoThumbnail({ url, label, onOpen }: { url: string; label: string; onOpen: (photo: LightboxPhoto) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onOpen({ url, label });
-      }}
-      className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-ink-900"
-      aria-label={label}
-    >
-      <img src={url} alt={label} className="h-full w-full object-cover" />
-    </button>
   );
 }
 
