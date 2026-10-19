@@ -45,37 +45,50 @@ export interface MonthlyArchiveStats {
   supplierCount: number;
 }
 
+/**
+ * The Leih-System audit log excludes `station_order` entries - those
+ * belong to the separate Station section (see generateMonthlyStationArchive.ts)
+ * now that the Archiv page is split into two sections, so they aren't
+ * listed (or exported) twice.
+ */
+function leihAuditLog(auditLog: AuditLogEntry[]): AuditLogEntry[] {
+  return auditLog.filter((a) => a.entityType !== 'station_order');
+}
+
 /** All "YYYY-MM" months that have at least one record, newest first. */
 export function listAvailableMonths(source: MonthlyArchiveSource): string[] {
   const months = new Set<string>();
   for (const c of source.cases) months.add(monthKey(c.createdAt));
   for (const s of source.scans) months.add(monthKey(s.createdAt));
-  for (const a of source.auditLog) months.add(monthKey(a.createdAt));
+  for (const a of leihAuditLog(source.auditLog)) months.add(monthKey(a.createdAt));
   return Array.from(months).sort((a, b) => (a < b ? 1 : -1));
 }
 
 export function statsForMonth(source: MonthlyArchiveSource, month: string): MonthlyArchiveStats {
   const cases = source.cases.filter((c) => monthKey(c.createdAt) === month);
   const scans = source.scans.filter((s) => monthKey(s.createdAt) === month);
-  const auditLog = source.auditLog.filter((a) => monthKey(a.createdAt) === month);
+  const auditLog = leihAuditLog(source.auditLog).filter((a) => monthKey(a.createdAt) === month);
   const supplierIds = new Set([...cases.map((c) => c.supplierId), ...scans.map((s) => s.supplierId).filter(isString)]);
   return { month, caseCount: cases.length, scanCount: scans.length, auditCount: auditLog.length, supplierCount: supplierIds.size };
 }
 
-export function formatMonthLabel(month: string): string {
-  const [year, m] = month.split('-').map(Number);
-  return new Date(Date.UTC(year, m - 1, 1)).toLocaleDateString('de-CH', { month: 'long', year: 'numeric' });
+export interface MonthlyLeihRecords {
+  cases: LoanCase[];
+  involvedSuppliers: Supplier[];
+  involvedTrays: Tray[];
+  scanBuckets: Record<'eingang' | 'ausgang' | 'kontrolle', ScanRecord[]>;
+  hygienePassportsThisMonth: LoanCase[];
+  auditLog: AuditLogEntry[];
+  trayById: Map<string, Tray>;
+  supplierById: Map<string, Supplier>;
+  physicianById: Map<string, Physician>;
 }
 
-export async function buildMonthlyArchive(
-  source: MonthlyArchiveSource,
-  month: string,
-  generatedBy: string,
-): Promise<Blob> {
+/** Shared by the ZIP builder and the in-app month preview, so both read the same records. */
+export function selectMonthlyLeihRecords(source: MonthlyArchiveSource, month: string): MonthlyLeihRecords {
   const cases = source.cases.filter((c) => monthKey(c.createdAt) === month);
   const scans = source.scans.filter((s) => monthKey(s.createdAt) === month);
-  const auditLog = source.auditLog.filter((a) => monthKey(a.createdAt) === month);
-  const caseById = new Map(source.cases.map((c) => [c.id, c]));
+  const auditLog = leihAuditLog(source.auditLog).filter((a) => monthKey(a.createdAt) === month);
   const trayById = new Map(source.trays.map((t) => [t.id, t]));
   const supplierById = new Map(source.suppliers.map((s) => [s.id, s]));
   const physicianById = new Map(source.physicians.map((p) => [p.id, p]));
@@ -90,10 +103,10 @@ export async function buildMonthlyArchive(
     if (s.supplierId) involvedSupplierIds.add(s.supplierId);
     if (s.trayId) involvedTrayIds.add(s.trayId);
   }
-
   const involvedSuppliers = source.suppliers.filter((s) => involvedSupplierIds.has(s.id));
   const involvedTrays = source.trays.filter((t) => involvedTrayIds.has(t.id));
 
+  const caseById = new Map(source.cases.map((c) => [c.id, c]));
   const scanBuckets: Record<'eingang' | 'ausgang' | 'kontrolle', ScanRecord[]> = {
     eingang: [],
     ausgang: [],
@@ -106,6 +119,22 @@ export async function buildMonthlyArchive(
   const hygienePassportsThisMonth = source.cases.filter(
     (c) => c.readinessNotifiedAt && monthKey(c.readinessNotifiedAt) === month && c.hygienePassportPhotoUrl,
   );
+
+  return { cases, involvedSuppliers, involvedTrays, scanBuckets, hygienePassportsThisMonth, auditLog, trayById, supplierById, physicianById };
+}
+
+export function formatMonthLabel(month: string): string {
+  const [year, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(year, m - 1, 1)).toLocaleDateString('de-CH', { month: 'long', year: 'numeric' });
+}
+
+export async function buildMonthlyArchive(
+  source: MonthlyArchiveSource,
+  month: string,
+  generatedBy: string,
+): Promise<Blob> {
+  const { cases, involvedSuppliers, involvedTrays, scanBuckets, hygienePassportsThisMonth, auditLog, trayById, supplierById, physicianById } =
+    selectMonthlyLeihRecords(source, month);
 
   const zip = new JSZip();
 
@@ -349,7 +378,7 @@ async function buildIndexSheet(
 // Helpers
 // ---------------------------------------------------------------------
 
-function monthKey(iso: string): string {
+export function monthKey(iso: string): string {
   return iso.slice(0, 7);
 }
 
@@ -365,7 +394,7 @@ function categorizeScan(scan: ScanRecord, caseById: Map<string, LoanCase>): 'ein
   return 'kontrolle';
 }
 
-async function dataUrlToBlob(dataUrl: string): Promise<Blob | null> {
+export async function dataUrlToBlob(dataUrl: string): Promise<Blob | null> {
   try {
     const response = await fetch(dataUrl);
     return await response.blob();
@@ -374,17 +403,17 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob | null> {
   }
 }
 
-function extensionFor(mimeType: string): string {
+export function extensionFor(mimeType: string): string {
   if (mimeType.includes('png')) return '.png';
   if (mimeType.includes('webp')) return '.webp';
   return '.jpg';
 }
 
-function safeFilePart(value: string): string {
+export function safeFilePart(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 60);
 }
 
-function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('de-CH', {
     day: '2-digit',
     month: '2-digit',
