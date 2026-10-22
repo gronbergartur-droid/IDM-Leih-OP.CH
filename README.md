@@ -206,13 +206,17 @@ ein echtes Supabase-Projekt angepasst werden muss.
   Ausgangs-Scans eines Falls) bleibt hier zusätzlich einsehbar.
 - **Audit-Log** (`/audit`) – jede Lieferanten-, Sieb- und Fall-Aktion sowie
   jede Kontroll-Bestätigung wird lückenlos mit Datum, Uhrzeit und Benutzer
-  protokolliert (append-only). Einträge zu einer Sterimaterial-Bestellung
-  zeigen zusätzlich die bestellten Artikelnamen sowie das jeweilige Foto
-  (Versand/Ausgang) als Vorschau, antippen öffnet es groß
-  (`PhotoThumbnail`/`PhotoLightbox` in `src/components/ui/`, auch von der
-  Sterimaterial-Archiv-Seite genutzt; `transform-gpu` auf dem Thumbnail
-  umgeht einen Chrome-Rendering-Bug, bei dem Bilder unter einem sticky
-  `backdrop-blur`-Header beim Scrollen hängen bleiben).
+  protokolliert (append-only – nichts wird je gelöscht). Einträge zu einer
+  Sterimaterial-Bestellung zeigen zusätzlich die bestellten Artikelnamen
+  sowie das jeweilige Foto (Versand/Ausgang) als Vorschau, antippen öffnet
+  es groß (`PhotoThumbnail`/`PhotoLightbox` in `src/components/ui/`, auch
+  von der Sterimaterial-Archiv-Seite genutzt; `transform-gpu` auf dem
+  Thumbnail umgeht einen Chrome-Rendering-Bug, bei dem Bilder unter einem
+  sticky `backdrop-blur`-Header beim Scrollen hängen bleiben). Die aktive
+  Liste zeigt nur die Einträge des laufenden Tages (`isToday` in
+  `AuditLogPage.tsx`) und verschwindet so jede Nacht um Mitternacht –
+  ältere Einträge bleiben vollständig über die Archiv-Seite nach Monat
+  einsehbar (Link oben auf der Seite).
 - **Benutzerverwaltung** (`/benutzer`, nur Admins) – Konten freischalten,
   Rollen zuweisen, Lieferanten-Konten verknüpfen. Siehe
   „Authentifizierung & Rollen" unten.
