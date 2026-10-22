@@ -25,6 +25,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 export const ACTION_META: Record<AuditAction, { label: string; icon: typeof ShieldCheck; tone: string }> = {
   scan_started: { label: 'Scan gestartet', icon: ScanSearch, tone: 'text-ink-500 bg-ink-100' },
@@ -61,6 +62,18 @@ const PHOTO_FIELD: Partial<Record<AuditAction, keyof StationOrder>> = {
   station_order_fulfilled: 'exitPhotoUrl',
 };
 
+/**
+ * Entries older than today disappear from this active list at midnight -
+ * never deleted, still fully browsable (grouped by month) on the Archiv
+ * page, which keeps the full history even though this view only shows
+ * "today" so it doesn't grow without bound.
+ */
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+
 export function AuditLogPage() {
   const [entries, setEntries] = useState<AuditLogEntry[] | null>(null);
   const [stationOrders, setStationOrders] = useState<Map<string, StationOrder>>(new Map());
@@ -71,19 +84,29 @@ export function AuditLogPage() {
     dataProvider.getStationOrders().then((orders) => setStationOrders(new Map(orders.map((o) => [o.id, o]))));
   }, []);
 
+  const todaysEntries = entries?.filter((e) => isToday(e.createdAt)) ?? null;
+
   return (
     <div>
       <TopBar title="Audit-Log" subtitle="Lückenlose Nachverfolgung" />
 
       <div className="px-4 py-4">
-        {entries === null && <p className="py-10 text-center text-sm text-ink-400">Wird geladen …</p>}
+        <Link
+          to="/archiv"
+          className="mb-4 flex items-center justify-center gap-1.5 text-xs text-ink-500 underline-offset-2 active:underline"
+        >
+          <Archive size={14} />
+          Archiv (ältere Einträge, nach Monat)
+        </Link>
 
-        {entries !== null && entries.length === 0 && (
+        {todaysEntries === null && <p className="py-10 text-center text-sm text-ink-400">Wird geladen …</p>}
+
+        {todaysEntries !== null && todaysEntries.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
               <FileSearch size={26} />
             </div>
-            <p className="text-sm font-medium text-ink-700">Noch keine Einträge</p>
+            <p className="text-sm font-medium text-ink-700">Noch keine Einträge heute</p>
             <p className="max-w-[220px] text-xs text-ink-500">
               Jede Sieb-Kontrolle wird hier automatisch und unveränderbar protokolliert.
             </p>
@@ -91,7 +114,7 @@ export function AuditLogPage() {
         )}
 
         <div className="space-y-2">
-          {entries?.map((entry) => {
+          {todaysEntries?.map((entry) => {
             const meta = ACTION_META[entry.action];
             const Icon = meta.icon;
             const photoField = PHOTO_FIELD[entry.action];
