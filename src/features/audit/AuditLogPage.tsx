@@ -95,7 +95,8 @@ export function AuditLogPage() {
             const meta = ACTION_META[entry.action];
             const Icon = meta.icon;
             const photoField = PHOTO_FIELD[entry.action];
-            const photoUrl = photoField ? (stationOrders.get(entry.entityId)?.[photoField] as string | null | undefined) : null;
+            const order = entry.entityType === 'station_order' ? stationOrders.get(entry.entityId) : undefined;
+            const photoUrl = photoField ? ((order?.[photoField] as string | null | undefined) ?? null) : null;
             return (
               <Card key={entry.id} className="flex items-start gap-3 p-3.5">
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${meta.tone}`}>
@@ -107,6 +108,9 @@ export function AuditLogPage() {
                     <span className="shrink-0 text-[11px] text-ink-400">{formatDate(entry.createdAt)}</span>
                   </div>
                   <p className="text-xs text-ink-500">{entry.performedBy}</p>
+                  {order && (
+                    <p className="mt-1 truncate text-xs text-ink-600">{order.lines.map((l) => l.name).join(', ')}</p>
+                  )}
                   {Object.keys(entry.details).length > 0 && (
                     <p className="mt-1 truncate text-xs text-ink-400">{formatDetails(entry.details)}</p>
                   )}
