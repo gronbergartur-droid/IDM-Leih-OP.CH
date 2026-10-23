@@ -54,6 +54,10 @@ export function ArchivPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Audit-Log is shared by both sections - fetched once here instead of
+    // once per section, so two concurrent requests for the same data can't
+    // race (seen in practice as the Station section hanging on "Wird
+    // geladen" while Leih System loaded fine).
     Promise.all([
       dataProvider.getSuppliers(),
       dataProvider.getTrays(),
@@ -61,12 +65,14 @@ export function ArchivPage() {
       dataProvider.getScanHistory(),
       dataProvider.getAuditLog(),
       dataProvider.getPhysicians(),
-    ]).then(([suppliers, trays, cases, scans, auditLog, physicians]) =>
-      setLeihData({ suppliers, trays, cases, scans, auditLog, physicians }),
-    );
-    Promise.all([dataProvider.getStationOrders(), dataProvider.getStations(), dataProvider.getAuditLog()]).then(
-      ([orders, stations, auditLog]) => setStationData({ orders, stations, auditLog }),
-    );
+      dataProvider.getStationOrders(),
+      dataProvider.getStations(),
+    ])
+      .then(([suppliers, trays, cases, scans, auditLog, physicians, orders, stations]) => {
+        setLeihData({ suppliers, trays, cases, scans, auditLog, physicians });
+        setStationData({ orders, stations, auditLog });
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Archiv konnte nicht geladen werden.'));
   }, []);
 
   const allowed = !me || me.role === 'admin' || me.role === 'op_leitung';
